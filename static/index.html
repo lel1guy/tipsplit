@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TipSplit</title>
+<style>
+  :root {
+    --bg: #0e1210;
+    --panel: #161d19;
+    --ink: #eaf2ec;
+    --muted: #9fb3a6;
+    --accent: #5bbf7f;
+    --line: #2a352e;
+    --good: #5bbf7f;
+    --danger: #d96c5f;
+    --warn: #e0b84c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 18px; line-height: 1.5;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 26px; color: var(--accent); }
+  header .tag { color: var(--muted); font-size: 15px; }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 850px) { main { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  button {
+    background: var(--accent); color: #0a120d; border: 0; border-radius: 6px;
+    font-size: 16px; font-weight: 600; padding: 8px 14px; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.small { font-size: 14px; padding: 4px 10px; }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button:hover { filter: brightness(1.1); }
+  input {
+    background: #1f2a23; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; font-size: 17px; padding: 6px 8px; width: 100%;
+  }
+  input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
+  label { display: block; color: var(--muted); font-size: 14px; margin: 8px 0 3px; }
+  .row { display: flex; gap: 8px; align-items: end; }
+  .row .grow { flex: 1; }
+
+  #weekList .week-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  }
+  #weekList .week-item:hover { background: #1c261f; }
+  #weekList .week-item.active { background: #1d2a21; border: 1px solid var(--accent); }
+  .week-date { font-weight: 600; }
+  .week-pool { color: var(--muted); font-size: 14px; }
+
+  .week-header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .week-header h2 { margin: 0 0 4px; font-size: 26px; }
+  .week-facts { color: var(--muted); font-size: 15px; }
+
+  .stat-strip { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+  .stat {
+    background: #1f2a23; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 16px; min-width: 130px;
+  }
+  .stat .num { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat .cap { font-size: 13px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { text-align: left; color: var(--muted); font-size: 14px; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th.num, td.num { text-align: right; }
+  td { padding: 6px 8px; border-bottom: 1px solid #223027; font-size: 17px; vertical-align: middle; }
+  td input { padding: 4px 6px; font-size: 16px; }
+  td.staff-name { font-weight: 600; }
+  .total-row td { border-top: 2px solid var(--line); border-bottom: none; font-weight: 700; }
+  .net-share { font-weight: 700; color: var(--accent); }
+  .vales-cell { color: var(--warn); font-size: 14px; }
+  .hidden { display: none; }
+  #empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: #1d2a21; color: var(--ink); border: 1px solid var(--accent);
+    padding: 10px 18px; border-radius: 8px; font-size: 15px;
+    opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .check { font-size: 14px; margin-left: 8px; }
+  .check.ok { color: var(--good); }
+  .check.bad { color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>TipSplit</h1>
+  <span class="tag">weekly tips · by points · vales deducted</span>
+</header>
+
+<main>
+  <!-- LEFT: weeks -->
+  <div class="panel">
+    <button id="newWeekBtn" style="width:100%; margin-bottom: 12px;">+ New week</button>
+    <div id="weekList"></div>
+    <div style="margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
+      <div class="edit-note" style="color: var(--muted); font-size: 14px;">Staff</div>
+      <div class="row" style="margin-top: 6px;">
+        <div class="grow"><input id="staffName" placeholder="New staff name"></div>
+        <button id="addStaffBtn" class="small">Add</button>
+      </div>
+      <div id="staffList" style="margin-top: 10px; font-size: 15px;"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: week detail -->
+  <div class="panel" id="detailPanel">
+    <div id="empty">Pick a week on the left, or create one.</div>
+    <div id="detail" class="hidden"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let currentWeek = null;
+let staffCache = [];
+
+async function api(url, method = "GET", body = null) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) { const t = await r.text(); throw new Error(t || r.status); }
+  return r.status === 204 ? null : r.json();
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+const eur = (v) => "€" + (Math.round(v * 100) / 100).toFixed(2);
+function esc(x) {
+  return String(x).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+function nextMonday() {
+  const d = new Date();
+  const day = (d.getDay() + 6) % 7;          // days since Monday
+  d.setDate(d.getDate() - day);
+  return d.toISOString().slice(0, 10);
+}
+
+// ---------- shares math (mirrors db.py — largest remainder so cents balance) ----------
+function computeShares(pool, entries) {
+  const total = entries.reduce((a, e) => a + e.points, 0);
+  if (total <= 0) return entries.map(() => 0);
+  const exact = entries.map(e => pool * (e.points / total));
+  const floored = exact.map(v => Math.floor(v * 100) / 100);
+  const sum = floored.reduce((a, b) => a + b, 0);
+  let leftover = Math.round((pool - sum) * 100);
+  const order = exact
+    .map((v, i) => ({ i, r: v - floored[i] }))
+    .sort((a, b) => b.r - a.r)
+    .map(x => x.i);
+  for (let k = 0; k < leftover; k++) floored[order[k % order.length]] += 0.01;
+  return entries.map((e, i) => Math.max(0, Math.round((floored[i] - e.vales) * 100) / 100));
+}
+
+// ---------- render: weeks ----------
+async function loadWeeks(keepOpen) {
+  const weeks = await api("/api/weeks");
+  staffCache = await api("/api/staff");
+  renderStaffList();
+  const box = $("#weekList");
+  box.innerHTML = "";
+  if (!weeks.length) { box.innerHTML = '<div class="edit-note">No weeks yet.</div>'; return; }
+  for (const w of weeks) {
+    const el = document.createElement("div");
+    el.className = "week-item" + (w.id === currentWeek ? " active" : "");
+    el.innerHTML = `<div>
+        <div class="week-date">${fmtDate(w.start_date)}</div>
+        <div class="week-pool">pool ${eur(w.pool_eur)}</div>
+      </div>
+      <button class="ghost small" data-del="${w.id}">✕</button>`;
+    el.addEventListener("click", () => openWeek(w.id));
+    el.querySelector("[data-del]").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Delete this week?")) return;
+      await api("/api/weeks/" + w.id, "DELETE");
+      if (currentWeek === w.id) { currentWeek = null; }
+      loadWeeks(); renderEmpty();
+    });
+    box.appendChild(el);
+  }
+  if (keepOpen && currentWeek) openWeek(currentWeek);
+}
+
+function renderStaffList() {
+  const box = $("#staffList");
+  box.innerHTML = staffCache.length
+    ? staffCache.map(s => `<span style="margin-right:10px;">${esc(s.name)}</span>`).join("")
+    : '<span style="color: var(--muted)">none yet</span>';
+}
+
+// ---------- render: week detail ----------
+async function openWeek(id) {
+  currentWeek = id;
+  const w = await api("/api/weeks/" + id);
+  const d = $("#detail");
+  d.classList.remove("hidden");
+  $("#empty").classList.add("hidden");
+
+  d.innerHTML = `
+    <div class="week-header">
+      <div>
+        <h2>Week of ${fmtDate(w.start_date)}</h2>
+        <div class="week-facts">${w.entries.length} staff · ${w.total_points} total points</div>
+      </div>
+      <div class="row">
+        <button class="ghost" id="addRowBtn">+ Add staff</button>
+      </div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat"><div class="cap">Pool (tips total)</div>
+        <input type="number" id="poolInput" min="0" step="0.01" value="${w.pool_eur}"></div>
+      <div class="stat"><div class="cap">Total points</div><div class="num" id="statPoints">${w.total_points}</div></div>
+      <div class="stat"><div class="cap">Sum of shares</div><div class="num" id="statSum">—</div></div>
+      <div class="stat"><div class="cap">Pool check</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>Staff</th><th class="num">Points</th><th class="num">Vales €</th>
+        <th class="num">Gross €</th><th class="num">Net €</th>
+      </tr></thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+
+    <div class="row" style="margin-top: 16px;">
+      <button id="saveBtn">Save week</button>
+      <span class="check" id="checkMsg"></span>
+    </div>
+    <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+      share = pool × points ÷ total points − vales. Net never goes below zero.
+    </div>`;
+
+  renderGrid(w);
+  $("#poolInput").addEventListener("input", () => renderGrid(w));
+  $("#addRowBtn").addEventListener("click", () => addRow(w));
+  $("#saveBtn").addEventListener("click", () => saveWeek(w));
+  loadWeeks(false);
+}
+
+function renderGrid(w) {
+  // keep a working copy; unassigned pool members tracked for addRow
+  const pool = parseFloat($("#poolInput").value) || 0;
+  const shares = computeShares(pool, w.entries);
+  const body = $("#gridBody");
+  body.innerHTML = "";
+
+  w.entries.forEach((e, idx) => {
+    const gross = (w.entries.reduce((a, x) => a + x.points, 0) > 0 && pool > 0)
+      ? pool * (e.points / w.entries.reduce((a, x) => a + x.points, 0)) : 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="staff-name">${esc(e.name)}</td>
+      <td class="num"><input type="number" data-i="${idx}" data-k="points" value="${e.points}" min="0" step="0.5" style="width:90px"></td>
+      <td class="num"><input type="number" data-i="${idx}" data-k="vales" value="${e.vales}" min="0" step="0.01" style="width:100px"></td>
+      <td class="num" data-gross>${gross ? eur(gross) : "—"}</td>
+      <td class="num net-share" data-net>${shares[idx] !== undefined ? eur(shares[idx]) : "—"}</td>`;
+    tr.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const i = parseInt(inp.dataset.i);
+        w.entries[i][inp.dataset.k] = parseFloat(inp.value) || 0;
+        refreshComputed(w);
+      });
+    });
+    body.appendChild(tr);
+  });
+
+  const totalPts = w.entries.reduce((a, e) => a + e.points, 0);
+  $("#statPoints").textContent = totalPts;
+  const sumShares = shares.reduce((a, b) => a + b, 0);
+  $("#statSum").textContent = eur(sumShares);
+  const diff = Math.round((sumShares - pool) * 100) / 100;
+  const check = $("#checkMsg");
+  const statCheck = $("#statCheck");
+  if (Math.abs(diff) < 0.01) {
+    check.textContent = "✓ pool fully split"; check.className = "check ok";
+    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
+  } else {
+    const msg = diff < 0 ? `€${eur(-diff)} left unallocated` : `€${eur(diff)} over pool (vales?)`;
+    check.textContent = "⚠ " + msg; check.className = "check bad";
+    statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
+  }
+}
+
+function refreshComputed(w) {
+  const pool = parseFloat($("#poolInput").value) || 0;
+  const totalPts = w.entries.reduce((a, e) => a + e.points, 0);
+  const shares = computeShares(pool, w.entries);
+  const rows = $("#gridBody").children;
+  w.entries.forEach((e, idx) => {
+    const gross = totalPts > 0 ? pool * (e.points / totalPts) : 0;
+    rows[idx].querySelector("[data-gross]").textContent = gross ? eur(gross) : "—";
+    rows[idx].querySelector("[data-net]").textContent = shares[idx] !== undefined ? eur(shares[idx]) : "—";
+  });
+  $("#statPoints").textContent = totalPts;
+  $("#statSum").textContent = eur(shares.reduce((a, b) => a + b, 0));
+  const diff = Math.round((shares.reduce((a, b) => a + b, 0) - pool) * 100) / 100;
+  const check = $("#checkMsg"), statCheck = $("#statCheck");
+  if (Math.abs(diff) < 0.01) {
+    check.textContent = "✓ pool fully split"; check.className = "check ok";
+    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
+  } else {
+    const msg = diff < 0 ? `€${eur(-diff)} left unallocated` : `€${eur(diff)} over pool (vales?)`;
+    check.textContent = "⚠ " + msg; check.className = "check bad";
+    statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
+  }
+}
+
+function addRow(w) {
+  // add every staff member not already in this week, or a blank row
+  const have = new Set(w.entries.map(e => e.staff_id));
+  const missing = staffCache.filter(s => !have.has(s.id));
+  if (missing.length) {
+    for (const s of missing) w.entries.push({ staff_id: s.id, name: s.name, points: 0, vales: 0 });
+  } else {
+    w.entries.push({ staff_id: null, name: "New staff", points: 0, vales: 0 });
+  }
+  renderGrid(w);
+}
+
+async function saveWeek(w) {
+  const pool = parseFloat($("#poolInput").value) || 0;
+  const payload = {
+    pool_eur: pool,
+    entries: w.entries
+      .filter(e => e.staff_id)                       // only real staff rows
+      .map(e => ({ staff_id: e.staff_id, points: e.points, vales: e.vales })),
+  };
+  try {
+    await api(`/api/weeks/${w.id}/save`, "PUT", payload);
+    toast("Week saved");
+    openWeek(w.id);                                   // reload fresh from server
+  } catch (err) {
+    toast("Save failed: " + err.message);
+  }
+}
+
+function renderEmpty() {
+  if (!currentWeek) { $("#detail").classList.add("hidden"); $("#empty").classList.remove("hidden"); }
+}
+
+// ---------- events ----------
+$("#newWeekBtn").addEventListener("click", async () => {
+  const created = await api("/api/weeks", "POST", { start_date: nextMonday() });
+  if (!created) { toast("That week already exists"); loadWeeks(); return; }
+  openWeek(created.id);
+  toast("New week created");
+});
+
+$("#addStaffBtn").addEventListener("click", async () => {
+  const name = $("#staffName").value.trim();
+  if (!name) return;
+  const s = await api("/api/staff", "POST", { name });
+  if (!s) { toast("Name already exists"); return; }
+  $("#staffName").value = "";
+  toast("Added " + s.name);
+  staffCache = await api("/api/staff");
+  renderStaffList();
+  if (currentWeek) { const w = await api("/api/weeks/" + currentWeek); openWeek(currentWeek); }
+});
+
+window.addEventListener("load", () => { loadWeeks(false); });
+</script>
+</body>
+</html>

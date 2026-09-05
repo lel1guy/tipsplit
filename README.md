@@ -23,6 +23,17 @@ First run seeds one real sample week (29 Jul 2024, from the actual
 Tips_2024.xlsx sheet): 12 staff, pool €555, shares match the original
 spreadsheet exactly — use it to verify the math against Excel.
 
+## Tests
+
+```bash
+pip install pytest
+python -m pytest tests/ -q
+```
+
+Regression suite for the split math: shares must match the source
+spreadsheet, always balance to the cent (largest-remainder rounding),
+deduct vales, and never go negative.
+
 ## What it does
 
 - Staff roster (shared across all weeks). Staff with history can't be

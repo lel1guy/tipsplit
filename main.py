@@ -31,7 +31,13 @@ class WeekIn(BaseModel):
 
 class EntryIn(BaseModel):
     staff_id: int
-    points: float = 0.0
+    mon: float = 0.0
+    tue: float = 0.0
+    wed: float = 0.0
+    thu: float = 0.0
+    fri: float = 0.0
+    sat: float = 0.0
+    sun: float = 0.0
     vales: float = 0.0
 
 class WeekSaveIn(BaseModel):

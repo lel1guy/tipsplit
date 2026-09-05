@@ -1,7 +1,10 @@
-"""Regression tests for TipSplit's split math.
+"""Regression tests for TipSplit's split math (hours-based model).
 
-The core invariant: shares must always balance to the cent, match the
-source spreadsheet, and never go negative — bar cash can't drift.
+Invariants under test: shares always balance to the cent, hours drive the
+split proportionally, vales deduct, nets never go negative, and the DB
+guards (delete with history, duplicate weeks) hold. The seeded data is
+random demo data, so tests build their own known weeks instead of
+asserting against fixed values.
 
 Run:  pytest tests/ -q
 """
@@ -21,57 +24,116 @@ def fresh_db(tmp_path, monkeypatch):
     return db
 
 
-EXPECTED = {  # K column of the real Tips_2024.xlsx sheet
-    "pedro": 61.14, "vitor": 47.03, "xana": 47.03, "bruna": 47.03,
-    "rita": 47.03, "didi": 47.03, "diogo": 47.03, "felix": 47.03,
-    "marin": 47.03, "vitanga": 70.55, "martin": 23.52, "hugo": 23.52,
-}
+def _entry(staff_id, name, hours_by_day, vales=0.0):
+    """hours_by_day: {"mon": 8, "tue": 0, ...} — missing days default 0."""
+    e = {"staff_id": staff_id, "name": name, "vales": vales}
+    for d in db.DAYS:
+        e[d] = hours_by_day.get(d, 0.0)
+    e["hours"] = sum(hours_by_day.values())
+    return e
 
 
-def _share_for(week, name):
-    return week["shares"][[e for e in week["entries"] if e["name"] == name][0]["staff_id"]]
+def _known_week(fresh_db):
+    """Build a week with a clean, hand-checkable split:
+    TestPersonA 40h, TestPersonB 20h, pool €600.
+    A = 600 × 40/60 = 400.00 · B = 600 × 20/60 = 200.00.
+
+    Names deliberately can't collide with the random demo roster
+    (demo names never contain "Test").
+    """
+    staff_a = fresh_db.create_staff("TestPersonA")
+    staff_b = fresh_db.create_staff("TestPersonB")
+    assert staff_a and staff_b, "staff create failed (name collision with seed?)"
+    week = fresh_db.create_week("2026-10-05")
+    mon_a = {"mon": 8, "tue": 8, "wed": 8, "thu": 8, "fri": 8}
+    mon_b = {"mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4}
+    fresh_db.save_week(week["id"], 600.0, [
+        _entry(staff_a["id"], "TestPersonA", mon_a),
+        _entry(staff_b["id"], "TestPersonB", mon_b),
+    ])
+    return fresh_db.get_week(week["id"]), staff_a, staff_b
 
 
-def test_seed_week_matches_source_spreadsheet(fresh_db):
+def test_seed_is_random_demo_data(fresh_db):
+    """Seed week must NOT contain the real spreadsheet names."""
     weeks = fresh_db.get_weeks()
     assert len(weeks) == 1
-    assert weeks[0]["pool_eur"] == 555.0
     week = fresh_db.get_week(weeks[0]["id"])
-    assert len(week["entries"]) == 12
-    assert week["total_points"] == 472.0
+    real_names = {"pedro", "vitor", "xana", "bruna", "rita", "didi",
+                  "diogo", "felix", "marin", "vitanga", "martin", "hugo"}
+    seeded = {e["name"].lower() for e in week["entries"]}
+    assert seeded.isdisjoint(real_names), f"real spreadsheet names leaked: {seeded & real_names}"
+    assert week["entries"], "seed week has no staff"
+    assert week["pool_eur"] > 0
+    # every seeded person has a plausible 4-60h week
     for e in week["entries"]:
-        assert math.isclose(week["shares"][e["staff_id"]], EXPECTED[e["name"]], abs_tol=0.011), (
-            f"{e['name']}: got {week['shares'][e['staff_id']]}, want {EXPECTED[e['name']]}")
+        assert 4.0 <= e["hours"] <= 60.0, f"{e['name']} has {e['hours']}h"
 
 
-def test_shares_sum_exactly_to_pool(fresh_db):
-    """Largest-remainder rounding: no drift, cash balances to the cent."""
+def test_seed_shares_balance_exactly(fresh_db):
+    """Even with random data the demo week must balance to the cent.
+
+    Vales were already paid out during the week, so the invariant is
+    net shares + total vales == pool (i.e. gross always balances).
+    """
     week = fresh_db.get_week(fresh_db.get_weeks()[0]["id"])
-    total = sum(week["shares"].values())
-    assert abs(total - 555.0) < 0.005, f"sum {total:.2f} != 555.00"
+    total_net = sum(week["shares"].values())
+    total_vales = sum(e["vales"] for e in week["entries"])
+    assert abs(total_net + total_vales - week["pool_eur"]) < 0.005, (
+        f"net {total_net:.2f} + vales {total_vales:.2f} != pool {week['pool_eur']}")
 
 
-def test_zero_pool_and_zero_points_do_not_crash(fresh_db):
-    week_id = fresh_db.get_weeks()[0]["id"]
-    week = fresh_db.get_week(week_id)
-    fresh_db.save_week(week_id, 0.0,
-                       [{"staff_id": e["staff_id"], "points": 0, "vales": 0}
-                        for e in week["entries"]])
-    zero = fresh_db.get_week(week_id)
+def test_hours_drive_split_proportionally(fresh_db):
+    """40h vs 20h with €600 pool: A €400.00, B €200.00."""
+    week, staff_a, staff_b = _known_week(fresh_db)
+    shares = {e["name"]: week["shares"][e["staff_id"]] for e in week["entries"]}
+    assert shares["TestPersonA"] == pytest.approx(400.00, abs=0.01)
+    assert shares["TestPersonB"] == pytest.approx(200.00, abs=0.01)
+
+
+def test_total_hours_reported(fresh_db):
+    week, _, _ = _known_week(fresh_db)
+    assert week["total_hours"] == 60.0
+
+
+def test_fractional_hours_balance(fresh_db):
+    """7.5h + 2.5h days → total 40h + 20h split still balances."""
+    staff_a = fresh_db.create_staff("TestPersonA")
+    staff_b = fresh_db.create_staff("TestPersonB")
+    week = fresh_db.create_week("2026-10-12")
+    fresh_db.save_week(week["id"], 100.0, [
+        _entry(staff_a["id"], "TestPersonA", {"mon": 7.5, "tue": 8.5, "wed": 8, "thu": 8, "fri": 8}),
+        _entry(staff_b["id"], "TestPersonB", {"mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4}),
+    ])
+    full = fresh_db.get_week(week["id"])
+    assert full["total_hours"] == 60.0  # 40 + 20
+    total = sum(full["shares"].values())
+    assert abs(total - 100.0) < 0.005
+
+
+def test_zero_hours_do_not_crash(fresh_db):
+    staff_a = fresh_db.create_staff("TestPersonA")
+    week = fresh_db.create_week("2026-10-19")
+    fresh_db.save_week(week["id"], 555.0, [
+        _entry(staff_a["id"], "TestPersonA", {"mon": 0}),
+    ])
+    zero = fresh_db.get_week(week["id"])
+    assert zero["total_hours"] == 0.0
     assert all(v == 0.0 for v in zero["shares"].values())
 
 
 def test_vales_deducted_and_never_negative(fresh_db):
-    week_id = fresh_db.get_weeks()[0]["id"]
-    week = fresh_db.get_week(week_id)
-    fresh_db.save_week(week_id, 555.0, [
-        {"staff_id": e["staff_id"], "points": e["points"],
-         "vales": 20.0 if e["name"] == "pedro" else (100.0 if e["name"] == "hugo" else e["vales"])}
-        for e in week["entries"]
+    week, staff_a, staff_b = _known_week(fresh_db)
+    # A gets a €500 vale on a €400 gross → net 0, not −100.
+    fresh_db.save_week(week["id"], 600.0, [
+        _entry(staff_a["id"], "TestPersonA", {"mon": 8, "tue": 8, "wed": 8, "thu": 8, "fri": 8}, vales=500.0),
+        _entry(staff_b["id"], "TestPersonB", {"mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4}, vales=0.0),
     ])
-    v = fresh_db.get_week(week_id)
-    assert math.isclose(_share_for(v, "pedro"), 41.14, abs_tol=0.01)   # 61.14 − 20
-    assert _share_for(v, "hugo") == 0.0                                 # gross < vale → 0
+    v = fresh_db.get_week(week["id"])
+    a_row = [e for e in v["entries"] if e["name"] == "TestPersonA"][0]
+    b_row = [e for e in v["entries"] if e["name"] == "TestPersonB"][0]
+    assert v["shares"][a_row["staff_id"]] == 0.0      # never negative
+    assert v["shares"][b_row["staff_id"]] == pytest.approx(200.00, abs=0.01)  # untouched
 
 
 def test_staff_with_history_cannot_be_deleted(fresh_db):
@@ -81,21 +143,8 @@ def test_staff_with_history_cannot_be_deleted(fresh_db):
 
 
 def test_duplicate_week_date_rejected(fresh_db):
-    assert fresh_db.create_week("2024-07-29") is None
-
-
-def test_round_trip_new_week_balances(fresh_db):
-    fresh = fresh_db.create_week("2024-09-02")
-    assert fresh is not None
-    staff = fresh_db.get_staff()
-    assert len(staff) >= 2
-    saved = fresh_db.save_week(fresh["id"], 100.0, [
-        {"staff_id": staff[0]["id"], "points": 40, "vales": 5},
-        {"staff_id": staff[1]["id"], "points": 20, "vales": 0},
-    ])
-    net = sum(saved["shares"].values())
-    assert abs(net + 5.0 - 100.0) < 0.005   # gross balances to pool
-    assert abs(net - 95.0) < 0.005          # net = pool − vales
+    first = fresh_db.get_weeks()[0]["start_date"]
+    assert fresh_db.create_week(first) is None
 
 
 def test_foreign_key_cascade_on_week_delete(fresh_db):

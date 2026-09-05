@@ -1,10 +1,10 @@
 # TipSplit
 
-Weekly staff tips splitter for bars and restaurants. The Excel workflow,
-rebuilt: each staff member earns points for the week, the tip pool is
-divided proportionally, and vales (cash advances) come off each share.
+Weekly staff tips splitter for bars and restaurants. Each staff member logs
+**hours worked per day (Mon–Sun)**; the week's total hours drive the split,
+and vales (cash advances) come off each share.
 
-share = pool × (points ÷ total points) − vales
+    share = pool × (person's hours ÷ total hours) − vales
 
 Sister app to BarSpec — same stack, same design language.
 
@@ -19,9 +19,9 @@ uvicorn main:app --reload --port 8001
 
 Open http://127.0.0.1:8001
 
-First run seeds one real sample week (29 Jul 2024, from the actual
-Tips_2024.xlsx sheet): 12 staff, pool €555, shares match the original
-spreadsheet exactly — use it to verify the math against Excel.
+First run seeds one demo week with **fictional staff and random hours** —
+the real names from any bar get added through the UI. The seed is only
+there so you can play with the split immediately.
 
 ## Tests
 
@@ -30,17 +30,18 @@ pip install pytest
 python -m pytest tests/ -q
 ```
 
-Regression suite for the split math: shares must match the source
-spreadsheet, always balance to the cent (largest-remainder rounding),
-deduct vales, and never go negative.
+Regression suite for the split math: hours drive shares proportionally,
+gross always balances to the cent (largest-remainder rounding), vales
+deduct, nets never go negative, and demo data can't break the invariants.
 
 ## What it does
 
-- Staff roster (shared across all weeks). Staff with history can't be
+- Day grid per staff member (Mon–Sun, 0.5h steps) with auto-totaled hours.
+- Staff roster shared across all weeks. Staff with history can't be
   deleted — that would corrupt old splits.
-- One screen per week: pool in, points + vales per person, net share out.
-- Live share preview while you type, with a pool check ("fully split"
-  or "€X over/under") before you save.
+- One screen per week: pool in, hours + vales per person, net share out.
+- Live share preview while you type, with a pool check that reads
+  "fully split" or "split + €X in vales" before you save.
 - Week history — no more one-tab-per-week Excel file.
 - New weeks default to the current Monday.
 
@@ -53,14 +54,13 @@ deduct vales, and never go negative.
 | DELETE | `/api/staff/{id}` | delete (only if no history) |
 | GET | `/api/weeks` | week list |
 | POST | `/api/weeks` | create week by Monday date (ISO) |
-| GET | `/api/weeks/{id}` | week + entries + shares |
+| GET | `/api/weeks/{id}` | week + entries (per-day hours) + shares |
 | PUT | `/api/weeks/{id}/save` | save pool + all entries in one shot |
 | DELETE | `/api/weeks/{id}` | delete week |
 
 ## Roadmap (not started)
 
-- Per-day tip entry (Mon–Sun columns like the sheet) that sums to the pool
 - Edit/remove staff that have history (recompute old weeks)
 - Export week as PDF/pay-slip printout for staff to sign
-- Weighted points presets (weekend multiplier)
+- Weekend shift multiplier for hours
 - PWA so it works offline on a phone behind the bar

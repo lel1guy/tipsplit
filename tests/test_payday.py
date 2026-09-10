@@ -7,12 +7,14 @@ Run:  pytest tests/ -q
 """
 import csv
 import io
+import re
 
 import pytest
 from openpyxl import load_workbook
 
 import db
 import exporters
+import splitting
 
 
 @pytest.fixture()
@@ -131,6 +133,30 @@ def test_payslips_and_cashsheet_carry_the_numbers(fresh):
     assert "Dinheiro a tirar da caixa" in sheet and "Ana Test" in sheet
     assert sheet.count("☐") == 2                      # one tick box per payable person
     assert "575,00" in sheet                          # total leaving the till
+
+
+def test_payslip_statement_arithmetic_reconciles(fresh):
+    """The printed proof must survive a calculator: pool × hours ÷ total = share."""
+    w, a, b = _week(fresh, 466.0)                      # Ana 40h, Bruno 20h → 60h
+    html = exporters.payslips_html(w, "Bar Teste")
+    m = re.search(r"([\d.]+,\d\d) € × ([\d.,]+) h ÷\s*([\d.,]+) h = ([\d.]+,\d\d) €", html)
+    assert m, "statement is not in the exact 'pool × hours ÷ total = share' form"
+
+    def num(s):
+        return float(s.replace(".", "").replace(",", ".")) if "," in s else float(s)
+
+    pool, hours, total, shown = (num(m.group(i)) for i in (1, 2, 3, 4))
+    assert total == w["total_hours"] == 60.0
+    assert abs(round(pool * hours / total, 2) - shown) < 0.01, (pool, hours, total, shown)
+    assert abs(shown - w["gross_shares"][a["id"]]) < 0.01
+
+
+def test_week_statement_is_a_rate_not_a_multiplication(fresh):
+    """The week line states €/h only — nothing on paper rounds a rate then multiplies it."""
+    w, _, _ = _week(fresh, 466.0)
+    st = splitting.statement(w["pool_eur"], w["total_hours"])
+    assert "÷" in st and "/h" in st and "Regra" in st
+    assert "×" not in st
 
 
 def test_settings_roundtrip(fresh):

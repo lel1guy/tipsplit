@@ -165,8 +165,9 @@ def _slip(week: dict, e: dict, venue: str) -> str:
     <tr><th>Adiantamentos (vales)</th><td class="num">− {_euros(vale)}</td></tr>
     <tr class="total"><td>A receber</td><td class="num">{_euros(net)}</td></tr>
   </table>
-  <div class="statement">{_euros(week["pool_eur"])} ÷ {week["total_hours"]:g} h =
-    {_euros(rate)}/h · {e["hours"]:g} h × {_euros(rate)} = {_euros(gross)}.
+  <div class="statement">{_euros(week["pool_eur"])} × {e["hours"]:g} h ÷
+    {week["total_hours"]:g} h = {_euros(gross)}
+    (com todos: {_euros(week["pool_eur"])} ÷ {week["total_hours"]:g} h = {_euros(rate)}/h).
     Regra: horas ÷ total de horas. Nenhuma parte fica com a casa.</div>
   <div class="sign"><span>Assinatura</span><span>Data ___/___/______</span></div>
 </div>"""
@@ -199,7 +200,8 @@ def cashsheet_html(week: dict, venue: str = "") -> str:
   <tr class="total"><td>Dinheiro a tirar da caixa</td><td class="num"></td><td class="num"></td>
       <td class="num">{_euros(total)}</td><td></td></tr>
 </table>
-<div class="statement">{_euros(week["pool_eur"])} ÷ {week["total_hours"]:g} h =
-  {_euros(week["rate_per_hour"])}/h. Regra: horas ÷ total de horas.</div>
+<div class="statement">{_euros(week["pool_eur"])} × horas ÷
+  {week["total_hours"]:g} h = a vossa parte (média {_euros(week["rate_per_hour"])}/h).
+  Regra: horas ÷ total de horas.</div>
 <div class="sign"><span>Assinatura (gerência)</span><span>Data ___/___/______</span></div>"""
     return _page(f"Caixa {week['start_date']}", body)

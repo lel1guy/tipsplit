@@ -71,6 +71,43 @@ def test_vales_group_by_week_with_subtotals(fresh):
     assert fresh.vales_by_week(staff_id=424242) == []
 
 
+def test_a_vale_alone_puts_the_person_in_the_week_table(fresh):
+    """V, 2026-09-10: someone who took an advance shows up in that week's table even
+    with no hours — 0 h, their advance, nothing hidden."""
+    wk = _clean_week(fresh)
+    ana = fresh.create_staff("Ana Test")
+    ze = fresh.create_staff("Zé Sem Horas", "Barback")
+    fresh.save_week(wk["id"], 600.0, [{"staff_id": ana["id"], "mon": 8, "tue": 8}])
+    fresh.record_vale(ze["id"], 15.0, "tabaco", week_id=wk["id"])
+
+    w = fresh.get_week(wk["id"])
+    row = next(e for e in w["entries"] if e["staff_id"] == ze["id"])
+    assert row["derived"] is True and row["hours"] == 0.0
+    assert row["vales"] == 15.0 and row["name"] == "Zé Sem Horas"
+    assert w["shares"][ze["id"]] == 0.0                  # no hours, no tips to receive
+    assert w["total_hours"] == 16.0                      # his 0 h change nothing
+    ana_row = next(e for e in w["entries"] if e["staff_id"] == ana["id"])
+    assert "derived" not in ana_row and ana_row["vales"] == 0.0
+
+    # once his hours are in, the row stops being derived — it's a real entry
+    fresh.save_week(wk["id"], 600.0, [
+        {"staff_id": ana["id"], "mon": 8, "tue": 8},
+        {"staff_id": ze["id"], "mon": 4},
+    ])
+    w2 = fresh.get_week(wk["id"])
+    row2 = next(e for e in w2["entries"] if e["staff_id"] == ze["id"])
+    assert "derived" not in row2 and row2["hours"] == 4.0
+    assert row2["vales"] == 15.0 and w2["total_hours"] == 20.0
+
+
+def test_a_vale_never_needs_a_motivo(fresh):
+    wk = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    row = fresh.record_vale(a["id"], 10.0, week_id=wk["id"])     # no note at all
+    assert row["note"] in (None, "", "adiantamento")
+    assert fresh.get_week(wk["id"])["entries"][0]["vales"] == 10.0
+
+
 def test_vale_max_cap(fresh):
     """Definições → Vale máximo: a ceiling per advance, 0 = sem limite."""
     wk = _clean_week(fresh)

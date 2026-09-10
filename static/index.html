@@ -310,7 +310,7 @@
         <div class="row" style="margin-top: 8px;">
           <div style="width: 130px"><label>Valor €</label>
             <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€"></div>
-          <div class="grow"><label>Motivo</label>
+          <div class="grow"><label>Motivo (opcional)</label>
             <input id="valeNote" placeholder="motivo"></div>
           <button id="addValeBtn">Registar</button>
         </div>
@@ -614,10 +614,14 @@ async function openWeek(id) {
   const w = await api("/api/weeks/" + id);
   // a fresh week has no entry rows yet — open it with the roster, zeroed, so the
   // weekly ritual is "type the hours", not "add eleven people first"
-  if (!w.entries.length && staffCache.length) {
+  const anyHours = w.entries.some(e => e.hours > 0);
+  if (!anyHours && staffCache.length) {
+    const already = {};                      // keep advances already recorded
+    w.entries.forEach(e => { if (e.vales) already[e.staff_id] = e.vales; });
     w.entries = staffCache.filter(s => !s.archived).map(s => ({
       staff_id: s.id, name: s.name, position: s.position, archived: s.archived,
-      mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0, hours: 0, vales: 0,
+      mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0, hours: 0,
+      vales: already[s.id] || 0,
     }));
   }
   const d = $("#detail");
@@ -716,7 +720,8 @@ function renderGrid(w) {
   w.entries.forEach((e, idx) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="staff-name">${esc(e.name)}</td>
+      <td class="staff-name">${esc(e.name)}${e.derived
+        ? ' <span class="hint" title="tem um adiantamento nesta semana, horas ainda não">sem horas</span>' : ""}</td>
       ${DAY_LABELS.map(([k]) => `
         <td class="num"><input type="number" data-i="${idx}" data-k="${k}"
           value="${e[k] || 0}" min="0" step="0.5" style="width:64px"${locked ? " disabled" : ""}></td>`).join("")}
@@ -932,9 +937,10 @@ async function loadTeam() {
   $("#valeWeek").innerHTML = weeks
     .map(w => `<option value="${w.id}"${w.id === team.week_id ? " selected" : ""}>${fmtDate(w.start_date)}${w.status === "locked" ? " · fechada" : ""}</option>`)
     .join("") || '<option value="">—</option>';
-  $("#valeMaxNote").textContent = settingsCache.vale_max
-    ? `Máximo por adiantamento: ${eur(settingsCache.vale_max)} (muda em Definições).`
-    : "Sem limite por adiantamento (define um em Definições).";
+  $("#valeMaxNote").textContent = (settingsCache.vale_max
+    ? `Máximo por adiantamento: ${eur(settingsCache.vale_max)} (muda em Definições). `
+    : "Sem limite por adiantamento (define um em Definições). ")
+    + "Um vale não precisa de horas nem de motivo — fica logo na tabela da semana.";
   $("#valeList").innerHTML = (await api("/api/vales/grouped")).map(g => `
     <div style="margin-top:12px">
       <div class="cap">Semana de ${fmtDate(g.start_date)}${g.status === "locked" ? " · fechada" : ""}

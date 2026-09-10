@@ -195,6 +195,39 @@ async function run() {
   ok("with no ceiling the same advance goes through",
      (await page.textContent("#valeList")).includes("9,99"));
 
+  // ---- 6c. an advance alone puts someone in the week's table ----
+  await page.click('[data-view="equipa"]');
+  await page.fill("#staffName", "Zé QA");
+  await page.click("#addStaffBtn");
+  await page.waitForFunction(
+    () => document.querySelector("#valeStaff").textContent.includes("Zé QA"),
+    null, { timeout: 15000 });
+  await page.selectOption("#valeStaff", { label: "Zé QA" });
+  await page.fill("#valeAmount", "3");
+  await page.fill("#valeNote", "");                       // motivo is optional
+  await page.click("#addValeBtn");
+  await page.waitForFunction(
+    () => document.querySelector("#valeList").textContent.includes("3,00"),
+    null, { timeout: 15000 });
+
+  await page.click('[data-view="semana"]');
+  await page.click("#weekList .week-item");
+  await page.waitForSelector("#poolInput");
+  await page.waitForFunction(
+    () => document.querySelector("#gridBody").textContent.includes("Zé QA"),
+    null, { timeout: 15000 });
+  const zeRow = await page.evaluate(() => {
+    const tr = [...document.querySelectorAll("#gridBody tr")]
+      .find(r => r.textContent.includes("Zé QA"));
+    return { tagged: tr.textContent.includes("sem horas"),
+             vales: tr.querySelector("[data-vales]").textContent,
+             net: tr.querySelector("[data-net]").textContent };
+  });
+  ok("an advance alone brings the person into the week's table",
+     zeRow.tagged && zeRow.vales.includes("3,00"), JSON.stringify(zeRow));
+  ok("no hours = nothing to pay out for them",
+     zeRow.net.includes("0,00") || zeRow.net.includes("—"), zeRow.net);
+
   await page.click('[data-view="semana"]');            // back to the week for the lock step
   await page.click("#weekList .week-item");
   await page.waitForSelector("#poolInput");

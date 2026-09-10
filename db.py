@@ -358,11 +358,32 @@ def get_week(week_id: int):
     ).fetchall()
     vales = _week_vales(conn, week_id)
     entries = []
+    have = set()
     for r in estaff:
         e = dict(r)
         e["hours"] = round(_hours_of(r), 1)
         e["vales"] = vales.get(e["staff_id"], 0.0)   # derived from the ledger
+        have.add(e["staff_id"])
         entries.append(e)
+    # Someone who took an advance this week belongs in this week's table whether or
+    # not their hours are in yet (V, 2026-09-10) — 0 h, their advance, nothing hidden.
+    if vales:
+        ghosts = conn.execute(
+            f"""SELECT id AS staff_id, name, position, archived FROM staff
+                WHERE id IN ({",".join("?" * len(vales))})""",
+            tuple(vales.keys())).fetchall()
+        for g in ghosts:
+            if g["staff_id"] in have:
+                continue
+            e = dict(g)
+            for d in DAYS:
+                e[d] = 0
+            e["id"] = None
+            e["hours"] = 0.0
+            e["vales"] = vales.get(g["staff_id"], 0.0)
+            e["derived"] = True
+            entries.append(e)
+        entries.sort(key=lambda e: e["name"])
     wk["entries"] = entries
     wk["total_hours"] = round(sum(e["hours"] for e in entries), 1)
     wk["shares"] = splitting.compute_shares(wk["pool_eur"], entries)

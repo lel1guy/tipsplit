@@ -71,6 +71,34 @@ def test_vales_group_by_week_with_subtotals(fresh):
     assert fresh.vales_by_week(staff_id=424242) == []
 
 
+def test_vale_max_cap(fresh):
+    """Definições → Vale máximo: a ceiling per advance, 0 = sem limite."""
+    wk = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    assert fresh.record_vale(a["id"], 100.0, week_id=wk["id"]) is not None   # no cap yet
+
+    fresh.set_setting("vale_max", "50")
+    with pytest.raises(ValueError):
+        fresh.record_vale(a["id"], 50.01, week_id=wk["id"])                  # above the cap
+    assert fresh.record_vale(a["id"], 50.0, week_id=wk["id"])["amount"] == 50.0   # exactly the cap
+
+    fresh.set_setting("vale_max", "0")                                       # back to no limit
+    assert fresh.record_vale(a["id"], 999.0, week_id=wk["id"])["amount"] == 999.0
+
+    fresh.set_setting("vale_max", "abc")                                     # junk in settings
+    assert fresh.record_vale(a["id"], 999.0, week_id=wk["id"])["amount"] == 999.0
+
+
+def test_vale_max_does_not_touch_existing_advances(fresh):
+    """Lowering the ceiling never rewrites history — it only stops new ones."""
+    wk = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    old = fresh.record_vale(a["id"], 80.0, note="antes", week_id=wk["id"])
+    fresh.set_setting("vale_max", "20")
+    assert fresh.get_vale(old["id"])["amount"] == 80.0
+    assert [v["amount"] for v in fresh.get_vales(staff_id=a["id"])] == [80.0]
+
+
 def test_bad_vales_rejected(fresh):
     _clean_week(fresh)
     ana = fresh.create_staff("Ana Test")

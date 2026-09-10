@@ -314,6 +314,7 @@
             <input id="valeNote" placeholder="motivo"></div>
           <button id="addValeBtn">Registar</button>
         </div>
+        <div id="valeMaxNote" class="hint" style="margin-top: 6px;"></div>
         <div id="valeList" style="margin-top: 10px;"></div>
       </div>
 
@@ -336,6 +337,14 @@
             <input id="venueName" placeholder="Nome da casa"></div>
           <button id="saveVenueBtn">Guardar</button>
         </div>
+        <div class="row" style="margin-top: 8px;">
+          <div style="width: 190px"><label>Vale máximo (€)</label>
+            <input id="valeMax" type="number" min="0" step="0.5" placeholder="0 = sem limite"></div>
+          <button id="saveValeMaxBtn">Guardar</button>
+          <span class="hint" id="valeMaxHint" style="margin-left: 6px;"></span>
+        </div>
+        <div class="hint" style="margin-top: 6px;">Limite por adiantamento. Os que já
+          existem ficam como estão — isto só trava os novos.</div>
       </div>
 
       <div class="panel">
@@ -376,6 +385,7 @@
 const $ = (s) => document.querySelector(s);
 let currentWeek = null;
 let staffCache = [];
+let settingsCache = { venue_name: "", lang: "pt", vale_max: 0 };
 
 async function api(url, method = "GET", body = null) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -423,13 +433,18 @@ async function boot() {
   if (!st.role) return showGate("login");              // no session (or stale cookie)
   if (st.role === "staff") return startStaff(st.name);  // the team's own page
   $("#gate").classList.add("hidden");
+  settingsCache = await api("/api/settings");
   loadWeeks(false);
   showView("semana");
 }
 
 async function loadSettings() {
-  const s = await api("/api/settings");
-  $("#venueName").value = s.venue_name || "";
+  settingsCache = await api("/api/settings");
+  $("#venueName").value = settingsCache.venue_name || "";
+  $("#valeMax").value = settingsCache.vale_max ? settingsCache.vale_max : "";
+  $("#valeMaxHint").textContent = settingsCache.vale_max
+    ? `Sem adiantamento acima de ${eur(settingsCache.vale_max)}.`
+    : "Sem limite — qualquer valor é aceite.";
   const rows = await api("/api/audit?limit=8");
   $("#auditList").innerHTML = rows.length
     ? rows.map(r => `<div>${esc(r.ts.slice(5, 16))} · ${esc(r.action)} ${esc(r.detail)}</div>`).join("")
@@ -792,8 +807,16 @@ $("#addValeBtn").addEventListener("click", async () => {
   const week_id = parseInt($("#valeWeek").value) || null;
   if (!staff_id || !(amount > 0)) { toast("Escolhe pessoa e valor"); return; }
   if (!week_id) { toast("Cria uma semana primeiro"); return; }
-  const row = await api("/api/vales", "POST",
-    { staff_id, amount, note: $("#valeNote").value.trim(), week_id });
+  const cap = settingsCache.vale_max || 0;
+  if (cap > 0 && amount > cap) { toast(`Máximo por vale: ${eur(cap)}`); return; }
+  let row;
+  try {
+    row = await api("/api/vales", "POST",
+      { staff_id, amount, note: $("#valeNote").value.trim(), week_id });
+  } catch (e) {
+    toast(e.message.includes("máximo") ? e.message : "Não foi possível registar o vale");
+    return;
+  }
   $("#valeAmount").value = ""; $("#valeNote").value = "";
   toast(`Vale ${eur(row.amount)} → ${row.name}`);
   loadTeam(); loadWeeks(false);
@@ -806,6 +829,14 @@ $("#gatePin").addEventListener("keydown", (e) => { if (e.key === "Enter") submit
 $("#saveVenueBtn").addEventListener("click", async () => {
   await api("/api/settings", "PUT", { venue_name: $("#venueName").value.trim() });
   toast("Nome da casa guardado");
+  loadSettings();
+});
+
+$("#saveValeMaxBtn").addEventListener("click", async () => {
+  const raw = $("#valeMax").value.trim().replace(",", ".");
+  const val = raw === "" ? 0 : Math.max(0, parseFloat(raw) || 0);
+  settingsCache = await api("/api/settings", "PUT", { vale_max: val });
+  toast(val ? `Vale máximo: ${eur(val)}` : "Sem limite de vale");
   loadSettings();
 });
 
@@ -901,6 +932,9 @@ async function loadTeam() {
   $("#valeWeek").innerHTML = weeks
     .map(w => `<option value="${w.id}"${w.id === team.week_id ? " selected" : ""}>${fmtDate(w.start_date)}${w.status === "locked" ? " · fechada" : ""}</option>`)
     .join("") || '<option value="">—</option>';
+  $("#valeMaxNote").textContent = settingsCache.vale_max
+    ? `Máximo por adiantamento: ${eur(settingsCache.vale_max)} (muda em Definições).`
+    : "Sem limite por adiantamento (define um em Definições).";
   $("#valeList").innerHTML = (await api("/api/vales/grouped")).map(g => `
     <div style="margin-top:12px">
       <div class="cap">Semana de ${fmtDate(g.start_date)}${g.status === "locked" ? " · fechada" : ""}

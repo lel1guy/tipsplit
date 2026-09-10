@@ -445,7 +445,8 @@ def open_week_id():
 
 def record_vale(staff_id: int, amount: float, note: str = "",
                 week_id: int | None = None, date: str | None = None):
-    """One dated advance, always attached to a week (V, 2026-09-10).
+    """One dated advance, always attached to a week (V, 2026-09-10), and never above
+    the venue's configured ceiling (Definições → Vale máximo; 0 = sem limite).
 
     week_id None → the open week. With no week at all there is nothing to deduct
     from, so that raises instead of creating an orphan. Returns the row, or None
@@ -454,6 +455,12 @@ def record_vale(staff_id: int, amount: float, note: str = "",
     amount = round(float(amount), 2)
     if amount <= 0:
         return None
+    try:                                  # junk in settings must not block a vale
+        cap = float(get_setting("vale_max", "0") or 0)
+    except ValueError:
+        cap = 0.0
+    if cap > 0 and amount > cap:
+        raise ValueError(f"acima do máximo configurado ({cap:.2f} €)".replace(".", ","))
     if week_id is None:
         week_id = open_week_id()
     if week_id is None:

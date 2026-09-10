@@ -308,6 +308,13 @@ class PinIn(BaseModel):
 class SettingsIn(BaseModel):
     venue_name: str | None = None
     lang: str | None = None
+    vale_max: float | None = None          # 0 = sem limite
+
+
+def _settings() -> dict:
+    return {"venue_name": db.get_setting("venue_name"),
+            "lang": db.get_setting("lang", "pt"),
+            "vale_max": float(db.get_setting("vale_max", "0") or 0)}
 
 
 @app.middleware("http")
@@ -416,8 +423,7 @@ def auth_change_pin(p: PinIn, current: str = ""):
 
 @app.get("/api/settings")
 def get_settings():
-    return {"venue_name": db.get_setting("venue_name"),
-            "lang": db.get_setting("lang", "pt")}
+    return _settings()
 
 
 @app.put("/api/settings")
@@ -429,7 +435,13 @@ def put_settings(s: SettingsIn):
         lang = "pt" if s.lang.lower().startswith("pt") else "en"
         db.set_setting("lang", lang)
         db.audit("settings.lang", lang)
-    return get_settings()
+    if s.vale_max is not None:
+        if s.vale_max < 0:
+            raise HTTPException(400, "O vale máximo não pode ser negativo")
+        db.set_setting("vale_max", f"{round(s.vale_max, 2):g}")
+        db.audit("settings.vale_max",
+                 "sem limite" if s.vale_max == 0 else f"{s.vale_max:.2f} €")
+    return _settings()
 
 
 @app.get("/api/audit")

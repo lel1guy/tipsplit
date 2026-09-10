@@ -159,6 +159,46 @@ async function run() {
      (await page.textContent("#weekVales")).includes("10,00"),
      (await page.textContent("#weekVales")).slice(0, 60));
 
+  // ---- 6b. the vale ceiling (Definições → Vale máximo) ----
+  await page.click('[data-view="definicoes"]');
+  await page.waitForSelector("#valeMax");
+  await page.fill("#valeMax", "5");
+  await page.click("#saveValeMaxBtn");
+  await page.waitForFunction(() =>
+    document.querySelector("#valeMaxHint").textContent.includes("5,00"), null, { timeout: 10000 });
+  ok("vale ceiling can be set in Definições",
+     (await page.textContent("#valeMaxHint")).includes("5,00 €"));
+
+  await page.click('[data-view="equipa"]');
+  await page.waitForSelector("#valeMaxNote");
+  await page.fill("#valeAmount", "9.99");
+  await page.click("#addValeBtn");
+  await sleep(700);
+  ok("an advance above the ceiling is refused",
+     (await page.textContent("#toast")).includes("Máximo por vale"),
+     await page.textContent("#toast"));
+  ok("nothing was written for the refused advance",
+     !(await page.textContent("#valeList")).includes("9,99"));
+
+  await page.click('[data-view="definicoes"]');
+  await page.fill("#valeMax", "0");
+  await page.click("#saveValeMaxBtn");
+  await page.waitForFunction(() =>
+    document.querySelector("#valeMaxHint").textContent.includes("Sem limite"), null, { timeout: 10000 });
+  ok("ceiling can be cleared back to no limit",
+     (await page.textContent("#valeMaxHint")).includes("Sem limite"));
+  await page.click('[data-view="equipa"]');
+  await page.fill("#valeAmount", "9.99");
+  await page.click("#addValeBtn");
+  await page.waitForFunction(() =>
+    document.querySelector("#valeList").textContent.includes("9,99"), null, { timeout: 15000 });
+  ok("with no ceiling the same advance goes through",
+     (await page.textContent("#valeList")).includes("9,99"));
+
+  await page.click('[data-view="semana"]');            // back to the week for the lock step
+  await page.click("#weekList .week-item");
+  await page.waitForSelector("#poolInput");
+
   // ---- 7. lock the week ----
   await page.click("#lockBtn");
   await sleep(800);

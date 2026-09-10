@@ -14,10 +14,11 @@ Run:  uvicorn main:app --reload   then open http://127.0.0.1:8001
 """
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 import db
+import exporters
 import splitting
 
 app = FastAPI(title="TipSplit")
@@ -211,3 +212,53 @@ def lock_week(week_id: int, closed_by: str = ""):
     if not db.get_week(week_id):
         raise HTTPException(404, "Week not found")
     return db.lock_week(week_id, closed_by)
+
+
+# ---------- Payday: payslips, cash sheet, exports ----------
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _locked_week(week_id: int):
+    """Payday paperwork belongs to a settled week — an open week prints 409."""
+    wk = db.get_week(week_id)
+    if not wk:
+        raise HTTPException(404, "Week not found")
+    if wk["status"] != "locked":
+        raise HTTPException(409, "Lock the week first")
+    return wk
+
+
+def _download(body, media_type: str, filename: str):
+    return Response(body, media_type=media_type,
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.get("/print/payslips/{week_id}", response_class=HTMLResponse)
+def print_payslips(week_id: int):
+    return exporters.payslips_html(_locked_week(week_id), db.get_setting("venue_name"))
+
+
+@app.get("/print/cashsheet/{week_id}", response_class=HTMLResponse)
+def print_cashsheet(week_id: int):
+    return exporters.cashsheet_html(_locked_week(week_id), db.get_setting("venue_name"))
+
+
+@app.get("/api/export/week/{week_id}")
+def export_week(week_id: int, fmt: str = "csv"):
+    wk = db.get_week(week_id)
+    if not wk:
+        raise HTTPException(404, "Week not found")
+    name = f"gorjetas-{wk['start_date']}"
+    if fmt == "xlsx":
+        return _download(exporters.week_xlsx(wk).getvalue(), XLSX, f"{name}.xlsx")
+    return _download(exporters.week_csv(wk), "text/csv; charset=utf-8", f"{name}.csv")
+
+
+@app.get("/api/export/annual/{year}")
+def export_annual(year: int, fmt: str = "xlsx"):
+    report = db.annual(year)
+    if fmt == "csv":
+        return _download(exporters.annual_csv(report), "text/csv; charset=utf-8",
+                         f"gorjetas-{year}.csv")
+    return _download(exporters.annual_xlsx(report).getvalue(), XLSX, f"gorjetas-{year}.xlsx")

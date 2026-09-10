@@ -39,6 +39,12 @@
   button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
   button.small { font-size: 14px; padding: 4px 10px; }
   button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  a.btn {
+    display: inline-block; background: transparent; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 14px;
+    padding: 5px 10px; text-decoration: none;
+  }
+  a.btn:hover { filter: brightness(1.2); }
   button:hover { filter: brightness(1.1); }
   input {
     background: #1f2a23; color: var(--ink); border: 1px solid var(--line);
@@ -98,7 +104,8 @@
 <body>
 <header>
   <h1>TipSplit</h1>
-  <span class="tag">weekly tips · by points · vales deducted</span>
+  <span class="tag">gorjetas semanais · por horas · vales descontados</span>
+  <a class="btn" id="annualBtn" href="#" style="margin-left:auto;">Anual (Excel)</a>
 </header>
 
 <div class="panel" style="max-width:1200px; margin:20px auto 0;">
@@ -374,6 +381,12 @@ async function openWeek(id) {
       ${locked ? "" : '<button class="ghost" id="lockBtn">🔒 Fechar semana</button>'}
       <span class="check" id="checkMsg"></span>
     </div>
+    <div class="row" style="margin-top: 10px;">
+      ${locked ? `<a class="btn" href="/print/payslips/${w.id}" target="_blank" rel="noopener">Payslips</a>
+        <a class="btn" href="/print/cashsheet/${w.id}" target="_blank" rel="noopener">Cash sheet</a>` : ""}
+      <a class="btn" href="/api/export/week/${w.id}?fmt=xlsx">Excel</a>
+      <a class="btn" href="/api/export/week/${w.id}?fmt=csv">CSV</a>
+    </div>
     <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
       Hours per day (Mon–Sun) sum to each person's week total.
       share = pool × hours ÷ total hours − vales. Net never goes below zero.
@@ -503,7 +516,10 @@ $("#addValeBtn").addEventListener("click", async () => {
   if (currentWeek) openWeek(currentWeek);        // the week's nets changed
 });
 
-window.addEventListener("load", () => { loadWeeks(false); });
+window.addEventListener("load", () => {
+  $("#annualBtn").href = `/api/export/annual/${new Date().getFullYear()}?fmt=xlsx`;
+  loadWeeks(false);
+});
 </script>
 </body>
 </html>

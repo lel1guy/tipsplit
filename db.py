@@ -469,6 +469,52 @@ def dashboard():
     }
 
 
+# ---------- Settings ----------
+
+def get_setting(key: str, default: str = "") -> str:
+    conn = _conn()
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    conn = _conn()
+    conn.execute("INSERT INTO settings (key, value) VALUES (?,?) "
+                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+    conn.commit()
+    conn.close()
+
+
+# ---------- Annual report (payday paperwork for the tax return) ----------
+
+def annual(year: int) -> dict:
+    """Per-staff tip totals for a year: month buckets + gross/vales/net.
+    Derived from the weeks every time — nothing stored, nothing to rot."""
+    conn = _conn()
+    weeks = conn.execute(
+        "SELECT id FROM weeks WHERE start_date LIKE ? ORDER BY start_date",
+        (f"{year}-%",)).fetchall()
+    conn.close()
+    months, staff = set(), {}
+    for r in weeks:
+        w = get_week(r["id"])
+        m = int(w["start_date"][5:7])
+        months.add(m)
+        for e in w["entries"]:
+            sid = e["staff_id"]
+            s = staff.setdefault(sid, {
+                "staff_id": sid, "name": e["name"], "position": e.get("position") or "",
+                "monthly": {}, "gross": 0.0, "vales": 0.0, "net": 0.0})
+            net = w["shares"].get(sid, 0.0)
+            s["monthly"][m] = round(s["monthly"].get(m, 0.0) + net, 2)
+            s["gross"] = round(s["gross"] + w["gross_shares"].get(sid, 0.0), 2)
+            s["vales"] = round(s["vales"] + e["vales"], 2)
+            s["net"] = round(s["net"] + net, 2)
+    return {"year": year, "weeks": len(weeks), "months": sorted(months),
+            "staff": list(staff.values())}
+
+
 # ---------- Week lifecycle ----------
 
 def lock_week(week_id: int, closed_by: str = ""):

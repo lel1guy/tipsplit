@@ -1,10 +1,13 @@
 """TipSplit — weekly staff tips splitter for bars/restaurants.
 
-Mirrors the classic Excel sheet: each staff member gets points for the week,
+Mirrors the classic Excel sheet: each staff member logs hours for the week,
 the tip pool is divided proportionally, and vales (cash advances) are
 deducted from each share.
 
-share = pool × (points / total_points) − vales
+    share = pool × (hours / total_hours) − vales
+
+Money math lives in splitting.py and runs SERVER-side only — the browser
+renders what the server returns (preview endpoint), so there is one formula.
 
 Run:  uvicorn main:app --reload   then open http://127.0.0.1:8001
 """
@@ -14,6 +17,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import db
+import splitting
 
 app = FastAPI(title="TipSplit")
 
@@ -43,6 +47,28 @@ class EntryIn(BaseModel):
 class WeekSaveIn(BaseModel):
     pool_eur: float = 0.0
     entries: list[EntryIn] = []
+
+
+def _lang(lang: str) -> str:
+    return "pt" if (lang or "pt").lower().startswith("pt") else "en"
+
+
+def _preview(pool_eur: float, entries: list[dict], lang: str) -> dict:
+    """Everything the UI needs to render a split — computed, never stored."""
+    total_hours = splitting.total_hours(entries)
+    shares = splitting.compute_shares(pool_eur, entries)
+    gross = splitting.gross_shares(pool_eur, entries)
+    shortfall = round(sum(splitting.vale_debt(gross.get(e["staff_id"], 0.0),
+                                              float(e.get("vales") or 0))
+                          for e in entries), 2)
+    return {
+        "shares": shares,
+        "gross_shares": gross,
+        "total_hours": total_hours,
+        "rate_per_hour": splitting.rate_per_hour(pool_eur, total_hours),
+        "vale_shortfall": shortfall,
+        "statement": splitting.statement(pool_eur, total_hours, lang),
+    }
 
 
 # ---------- Pages ----------
@@ -84,10 +110,11 @@ def create_week(w: WeekIn):
     return db.create_week(w.start_date)
 
 @app.get("/api/weeks/{week_id}")
-def get_week(week_id: int):
+def get_week(week_id: int, lang: str = "pt"):
     wk = db.get_week(week_id)
     if not wk:
         raise HTTPException(404, "Week not found")
+    wk["statement"] = splitting.statement(wk["pool_eur"], wk["total_hours"], _lang(lang))
     return wk
 
 @app.put("/api/weeks/{week_id}")
@@ -103,13 +130,31 @@ def delete_week(week_id: int):
     return {"ok": True}
 
 
-# ---------- Entries (points + vales per staff per week) ----------
+# ---------- Entries (hours + vales per staff per week) ----------
 
 @app.put("/api/weeks/{week_id}/save")
-def save_week(week_id: int, data: WeekSaveIn):
+def save_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
     """Save the whole week in one round-trip: pool + every entry.
     The UI edits the full grid and saves once — no per-cell churn."""
     wk = db.get_week(week_id)
     if not wk:
         raise HTTPException(404, "Week not found")
-    return db.save_week(week_id, data.pool_eur, [e.model_dump() for e in data.entries])
+    try:
+        return db.save_week(week_id, data.pool_eur, [e.model_dump() for e in data.entries])
+    except PermissionError:
+        raise HTTPException(403, "Week is locked — unlock it first")
+
+@app.post("/api/weeks/{week_id}/preview")
+def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
+    """Live split preview for the edit grid — same math as saving, but
+    nothing is written. Keeps the browser free of a second formula."""
+    if not db.get_week(week_id):
+        raise HTTPException(404, "Week not found")
+    return _preview(data.pool_eur, [e.model_dump() for e in data.entries], _lang(lang))
+
+@app.post("/api/weeks/{week_id}/lock")
+def lock_week(week_id: int, closed_by: str = ""):
+    """Close the week — money agreed. Unlocking (with a reason) is 004."""
+    if not db.get_week(week_id):
+        raise HTTPException(404, "Week not found")
+    return db.lock_week(week_id, closed_by)

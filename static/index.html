@@ -60,6 +60,8 @@
 
   .week-header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
   .week-header h2 { margin: 0 0 4px; font-size: 26px; }
+  .badge { font-size: 13px; font-weight: 500; color: var(--muted); border: 1px solid #2a332c; border-radius: 999px; padding: 2px 8px; vertical-align: middle; }
+  .statement { margin: 10px 0 14px; padding: 8px 12px; border-left: 3px solid var(--accent); background: #1c261f; color: var(--muted); font-size: 14px; border-radius: 4px; }
   .week-facts { color: var(--muted); font-size: 15px; }
 
   .stat-strip { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
@@ -155,20 +157,69 @@ function nextMonday() {
   return d.toISOString().slice(0, 10);
 }
 
-// ---------- shares math (mirrors db.py — largest remainder so cents balance) ----------
-function computeShares(pool, entries) {
-  const total = entries.reduce((a, e) => a + e.hours, 0);
-  if (total <= 0) return entries.map(() => 0);
-  const exact = entries.map(e => pool * (e.hours / total));
-  const floored = exact.map(v => Math.floor(v * 100) / 100);
-  const sum = floored.reduce((a, b) => a + b, 0);
-  let leftover = Math.round((pool - sum) * 100);
-  const order = exact
-    .map((v, i) => ({ i, r: v - floored[i] }))
-    .sort((a, b) => b.r - a.r)
-    .map(x => x.i);
-  for (let k = 0; k < leftover; k++) floored[order[k % order.length]] += 0.01;
-  return entries.map((e, i) => Math.max(0, Math.round((floored[i] - e.vales) * 100) / 100));
+// ---------- split rendering (math lives server-side — no second formula) ----------
+// splitting.py owns the money math and the rounding rule. The browser posts the
+// working grid to /preview and renders what comes back, so Python and JS can
+// never drift apart.
+let previewSeq = 0;
+let previewTimer = null;
+
+async function previewShares(w) {
+  const pool = parseFloat($("#poolInput").value) || 0;
+  const entries = w.entries
+    .filter(e => e.staff_id)
+    .map(e => ({
+      staff_id: e.staff_id,
+      mon: e.mon || 0, tue: e.tue || 0, wed: e.wed || 0, thu: e.thu || 0,
+      fri: e.fri || 0, sat: e.sat || 0, sun: e.sun || 0,
+      vales: parseFloat(e.vales) || 0,
+    }));
+  const seq = ++previewSeq;
+  const data = await api("/api/weeks/" + w.id + "/preview", "POST",
+                         { pool_eur: pool, entries });
+  if (seq !== previewSeq) return null;      // a newer edit already answered
+  return data;
+}
+
+function applySplit(w, p) {
+  const pool = parseFloat($("#poolInput").value) || 0;
+  const rows = $("#gridBody").children;
+  w.entries.forEach((e, idx) => {
+    if (!rows[idx]) return;
+    const cell = rows[idx].querySelector("[data-net]");
+    if (!cell) return;
+    const net = e.staff_id ? p.shares[e.staff_id] : undefined;
+    cell.textContent = net === undefined ? "—" : eur(net);
+  });
+  $("#statHours").textContent = p.total_hours;
+  const totalGross = Object.values(p.gross_shares).reduce((a, b) => a + b, 0);
+  const totalNet = Object.values(p.shares).reduce((a, b) => a + b, 0);
+  $("#statSum").textContent = eur(totalNet);
+  $("#statement").textContent = p.statement;
+
+  const check = $("#checkMsg"), statCheck = $("#statCheck");
+  const diff = Math.round((totalGross - pool) * 100) / 100;
+  if (Math.abs(diff) < 0.01) {
+    check.textContent = "✓ pool fully split"; check.className = "check ok";
+    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
+  } else {
+    check.textContent = "⚠ " + (diff < 0 ? eur(-diff) + " left unallocated"
+                                          : eur(diff) + " over pool");
+    check.className = "check bad";
+    statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
+  }
+  if (p.vale_shortfall > 0.004) {
+    check.textContent += ` · ⚠ ${eur(p.vale_shortfall)} vale acima do ganho (dívida ao pote)`;
+    check.className = "check bad";
+  }
+}
+
+function scheduleSplit(w) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    const p = await previewShares(w);
+    if (p) applySplit(w, p);
+  }, 150);
 }
 
 // ---------- render: weeks ----------
@@ -224,24 +275,27 @@ async function openWeek(id) {
   d.classList.remove("hidden");
   $("#empty").classList.add("hidden");
 
+  const locked = w.status === "locked";
   d.innerHTML = `
     <div class="week-header">
       <div>
-        <h2>Week of ${fmtDate(w.start_date)}</h2>
+        <h2>Week of ${fmtDate(w.start_date)}${locked ? ' <span class="badge">🔒 fechada</span>' : ""}</h2>
         <div class="week-facts">${w.entries.length} staff · ${w.total_hours} total hours</div>
       </div>
       <div class="row">
-        <button class="ghost" id="addRowBtn">+ Add staff</button>
+        ${locked ? "" : '<button class="ghost" id="addRowBtn">+ Add staff</button>'}
       </div>
     </div>
 
     <div class="stat-strip">
       <div class="stat"><div class="cap">Pool (tips total €)</div>
-        <input type="number" id="poolInput" min="0" step="0.01" value="${w.pool_eur}"></div>
+        <input type="number" id="poolInput" min="0" step="0.01" value="${w.pool_eur}"${locked ? " disabled" : ""}></div>
       <div class="stat"><div class="cap">Total hours</div><div class="num" id="statHours">${w.total_hours}</div></div>
-      <div class="stat"><div class="cap">Sum of shares</div><div class="num" id="statSum">—</div></div>
+      <div class="stat"><div class="cap">Net total</div><div class="num" id="statSum">—</div></div>
       <div class="stat"><div class="cap">Pool check</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
     </div>
+
+    <div class="statement" id="statement">${esc(w.statement || "")}</div>
 
     <div style="overflow-x: auto;">
     <table>
@@ -256,27 +310,36 @@ async function openWeek(id) {
     </div>
 
     <div class="row" style="margin-top: 16px;">
-      <button id="saveBtn">Save week</button>
+      ${locked ? "" : '<button id="saveBtn">Save week</button>'}
+      ${locked ? "" : '<button class="ghost" id="lockBtn">🔒 Fechar semana</button>'}
       <span class="check" id="checkMsg"></span>
     </div>
     <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
       Hours per day (Mon–Sun) sum to each person's week total.
       share = pool × hours ÷ total hours − vales. Net never goes below zero.
+      ${locked ? "Semana fechada — para corrigir, é preciso desbloquear (com motivo)." : ""}
     </div>`;
 
   renderGrid(w);
-  $("#poolInput").addEventListener("input", () => renderGrid(w));
-  $("#addRowBtn").addEventListener("click", () => addRow(w));
-  $("#saveBtn").addEventListener("click", () => saveWeek(w));
+  if (!locked) {
+    $("#poolInput").addEventListener("input", () => scheduleSplit(w));
+    $("#addRowBtn").addEventListener("click", () => addRow(w));
+    $("#saveBtn").addEventListener("click", () => saveWeek(w));
+    $("#lockBtn").addEventListener("click", () => lockWeek(w));
+  }
   loadWeeks(false);
 }
 
+async function lockWeek(w) {
+  if (!confirm("Fechar a semana? Os valores ficam bloqueados para edição.")) return;
+  await api(`/api/weeks/${w.id}/lock`, "POST");
+  toast("Semana fechada");
+  openWeek(w.id);
+}
+
 function renderGrid(w) {
-  const pool = parseFloat($("#poolInput").value) || 0;
-  // refresh computed hours on the working copy
+  const locked = w.status === "locked";
   w.entries.forEach(e => { e.hours = Math.round(weekHours(e) * 10) / 10; });
-  const totalHours = w.entries.reduce((a, e) => a + e.hours, 0);
-  const shares = computeShares(pool, w.entries);
   const body = $("#gridBody");
   body.innerHTML = "";
 
@@ -286,67 +349,24 @@ function renderGrid(w) {
       <td class="staff-name">${esc(e.name)}</td>
       ${DAY_LABELS.map(([k]) => `
         <td class="num"><input type="number" data-i="${idx}" data-k="${k}"
-          value="${e[k] || 0}" min="0" step="0.5" style="width:64px"></td>`).join("")}
+          value="${e[k] || 0}" min="0" step="0.5" style="width:64px"${locked ? " disabled" : ""}></td>`).join("")}
       <td class="num" data-hours>${e.hours || 0}</td>
       <td class="num"><input type="number" data-i="${idx}" data-k="vales" value="${e.vales}"
-        min="0" step="0.01" style="width:86px"></td>
-      <td class="num net-share" data-net>${shares[idx] !== undefined ? eur(shares[idx]) : "—"}</td>`;
+        min="0" step="0.01" style="width:86px"${locked ? " disabled" : ""}></td>
+      <td class="num net-share" data-net>—</td>`;
     tr.querySelectorAll("input").forEach(inp => {
       inp.addEventListener("input", () => {
         const i = parseInt(inp.dataset.i);
         w.entries[i][inp.dataset.k] = parseFloat(inp.value) || 0;
-        refreshComputed(w);
+        w.entries[i].hours = Math.round(weekHours(w.entries[i]) * 10) / 10;
+        tr.querySelector("[data-hours]").textContent = w.entries[i].hours || 0;
+        scheduleSplit(w);
       });
     });
     body.appendChild(tr);
   });
 
-  $("#statHours").textContent = Math.round(totalHours * 10) / 10;
-  const totalVales = w.entries.reduce((a, e) => a + (parseFloat(e.vales) || 0), 0);
-  const sumShares = shares.reduce((a, b) => a + b, 0);
-  $("#statSum").textContent = eur(sumShares);
-  const diff = Math.round((sumShares - pool) * 100) / 100;
-  const check = $("#checkMsg");
-  const statCheck = $("#statCheck");
-  if (Math.abs(diff) < 0.01) {
-    check.textContent = "✓ pool fully split"; check.className = "check ok";
-    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
-  } else if (Math.abs(diff + totalVales) < 0.01) {
-    check.textContent = `✓ split + ${eur(totalVales)} in vales`; check.className = "check ok";
-    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
-  } else {
-    const msg = diff < 0 ? `${eur(-diff)} left unallocated` : `${eur(diff)} over pool`;
-    check.textContent = "⚠ " + msg; check.className = "check bad";
-    statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
-  }
-}
-
-function refreshComputed(w) {
-  const pool = parseFloat($("#poolInput").value) || 0;
-  w.entries.forEach(e => { e.hours = Math.round(weekHours(e) * 10) / 10; });
-  const totalHours = w.entries.reduce((a, e) => a + e.hours, 0);
-  const shares = computeShares(pool, w.entries);
-  const rows = $("#gridBody").children;
-  w.entries.forEach((e, idx) => {
-    rows[idx].querySelector("[data-hours]").textContent = e.hours || 0;
-    rows[idx].querySelector("[data-net]").textContent = shares[idx] !== undefined ? eur(shares[idx]) : "—";
-  });
-  $("#statHours").textContent = Math.round(totalHours * 10) / 10;
-  const totalVales = w.entries.reduce((a, e) => a + (parseFloat(e.vales) || 0), 0);
-  $("#statSum").textContent = eur(shares.reduce((a, b) => a + b, 0));
-  const diff = Math.round((shares.reduce((a, b) => a + b, 0) - pool) * 100) / 100;
-  const check = $("#checkMsg"), statCheck = $("#statCheck");
-  if (Math.abs(diff) < 0.01) {
-    check.textContent = "✓ pool fully split"; check.className = "check ok";
-    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
-  } else if (Math.abs(diff + totalVales) < 0.01) {
-    check.textContent = `✓ split + ${eur(totalVales)} in vales`; check.className = "check ok";
-    statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
-  } else {
-    const msg = diff < 0 ? `${eur(-diff)} left unallocated` : `${eur(diff)} over pool`;
-    check.textContent = "⚠ " + msg; check.className = "check bad";
-    statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
-  }
+  scheduleSplit(w);          // fill the net column from the server
 }
 
 function addRow(w) {

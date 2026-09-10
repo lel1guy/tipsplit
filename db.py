@@ -3,18 +3,27 @@
 Plain sqlite3, no ORM — same style as BarSpec so both codebases read alike.
 DB file: tipsplit.db (created on first run, gitignored).
 
-Points are HOURS worked: each staff member logs hours per day (Mon-Sun),
-the week total drives the split:
+Schema history lives in migrations/*.sql, applied in order and tracked with
+PRAGMA user_version — a fresh install runs the same path as an upgraded one.
+
+Money math lives in splitting.py (single source of truth); this module only
+reads/writes rows.
+
+Hours are the points: each staff member logs hours per day (Mon-Sun), the
+week total drives the split:
 
     gross_share = pool × (week_hours / Σ week_hours)
     net_share   = gross_share − vales   (never below zero)
 """
-import sqlite3
-import math
 import random
+import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "tipsplit.db"
+import splitting
+
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "tipsplit.db"
+MIGRATIONS_DIR = BASE_DIR / "migrations"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS staff (
@@ -48,7 +57,7 @@ CREATE TABLE IF NOT EXISTS week_pools (
 );
 """
 
-DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+DAYS = splitting.DAYS      # one source of truth for the day columns
 
 # Random demo names — deliberately NOT the real staff list from the
 # spreadsheet V shared. The seed data is fictional so the app can be
@@ -95,9 +104,32 @@ def _current_monday():
     return monday.isoformat()
 
 
+# ---------- migrations ----------
+
+def _version(conn) -> int:
+    return conn.execute("PRAGMA user_version").fetchone()[0]
+
+
+def migrate(conn):
+    """Apply migrations/*.sql with a higher number than the current user_version."""
+    current = _version(conn)
+    for f in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        ver = int(f.name.split("_", 1)[0])
+        if ver <= current:
+            continue
+        conn.executescript(f.read_text(encoding="utf-8"))
+        conn.execute(f"PRAGMA user_version = {ver}")
+        conn.commit()
+
+
 def init_db():
     conn = _conn()
-    conn.executescript(SCHEMA)
+    # Base schema belongs only on a v0 database: it is the OLD shape, so
+    # migration 001 exercises on every install, fresh or upgraded. Re-running
+    # it on a migrated DB would re-add columns that already exist.
+    if _version(conn) == 0:
+        conn.executescript(SCHEMA)
+    migrate(conn)
     # Seed one random demo week if the DB is empty.
     if conn.execute("SELECT COUNT(*) FROM weeks").fetchone()[0] == 0:
         cur = conn.execute("INSERT INTO weeks (start_date) VALUES (?)",
@@ -176,6 +208,9 @@ def _hours_of(row) -> float:
 
 def _week_summary(conn, row) -> dict:
     wk = dict(row)
+    wk.setdefault("status", "open")           # pre-001 rows
+    wk.setdefault("closed_at", None)
+    wk.setdefault("closed_by", None)
     wk["pool_eur"] = 0.0
     p = conn.execute("SELECT pool_eur FROM week_pools WHERE week_id=?", (wk["id"],)).fetchone()
     if p:
@@ -211,7 +246,9 @@ def get_week(week_id: int):
         entries.append(e)
     wk["entries"] = entries
     wk["total_hours"] = round(sum(e["hours"] for e in entries), 1)
-    wk["shares"] = _compute_shares(wk["pool_eur"], entries)
+    wk["shares"] = splitting.compute_shares(wk["pool_eur"], entries)
+    wk["gross_shares"] = splitting.gross_shares(wk["pool_eur"], entries)
+    wk["rate_per_hour"] = splitting.rate_per_hour(wk["pool_eur"], wk["total_hours"])
     conn.close()
     return wk
 
@@ -249,8 +286,12 @@ def delete_week(week_id: int):
 
 def save_week(week_id: int, pool_eur: float, entries: list[dict]) -> dict:
     """Replace the week's pool + entries wholesale. Each entry carries
-    per-day hours and vales."""
+    per-day hours and vales. A locked week is money agreed — refuse."""
     conn = _conn()
+    row = conn.execute("SELECT status FROM weeks WHERE id=?", (week_id,)).fetchone()
+    if row and row["status"] == "locked":
+        conn.close()
+        raise PermissionError("week is locked")
     conn.execute("DELETE FROM entries WHERE week_id=?", (week_id,))
     conn.execute("UPDATE week_pools SET pool_eur=? WHERE week_id=?", (pool_eur, week_id))
     for e in entries:
@@ -266,29 +307,16 @@ def save_week(week_id: int, pool_eur: float, entries: list[dict]) -> dict:
     return get_week(week_id)
 
 
-# ---------- The split math ----------
+# ---------- Week lifecycle ----------
 
-def _compute_shares(pool_eur: float, entries: list[dict]) -> dict:
-    """gross_i = pool × hours_i / Σhours, net = gross − vales (never < 0).
-
-    Largest-remainder rounding on the GROSS shares so they always sum to
-    exactly the pool. Without it, N shares rounded independently drift and
-    the cash never balances.
-    """
-    total = sum(e["hours"] for e in entries)
-    if total <= 0:
-        return {e["staff_id"]: 0.0 for e in entries}
-
-    exact = {e["staff_id"]: pool_eur * (e["hours"] / total) for e in entries}
-    floored = {sid: math.floor(v * 100) / 100 for sid, v in exact.items()}
-    leftover_cents = round((pool_eur - sum(floored.values())) * 100)
-
-    order = sorted(floored.keys(), key=lambda sid: exact[sid] - floored[sid], reverse=True)
-    for i in range(leftover_cents):
-        floored[order[i % len(order)]] += 0.01
-
-    vales = {e["staff_id"]: e["vales"] for e in entries}
-    shares = {}
-    for sid, gross in floored.items():
-        shares[sid] = round(max(0.0, gross - vales.get(sid, 0.0)), 2)
-    return shares
+def lock_week(week_id: int, closed_by: str = ""):
+    """Close a week: status locked + timestamp. Idempotent."""
+    conn = _conn()
+    conn.execute(
+        "UPDATE weeks SET status='locked', "
+        "closed_at=COALESCE(closed_at, datetime('now')), closed_by=? WHERE id=?",
+        (closed_by, week_id),
+    )
+    conn.commit()
+    conn.close()
+    return get_week(week_id)

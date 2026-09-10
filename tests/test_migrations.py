@@ -9,7 +9,7 @@ import pytest
 
 import db
 
-LATEST = 4          # bump when a migration lands
+LATEST = 5          # bump when a migration lands
 
 
 def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0, vale=10.0):

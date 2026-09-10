@@ -228,6 +228,95 @@ def delete_staff(staff_id: int) -> bool:
     return True
 
 
+# ---------- Per-staff access (the /equipa view) ----------
+
+def staff_pin_hash(staff_id: int) -> str:
+    conn = _conn()
+    row = conn.execute("SELECT pin_hash FROM staff WHERE id=?", (staff_id,)).fetchone()
+    conn.close()
+    return (row["pin_hash"] or "") if row else ""
+
+
+def set_staff_pin(staff_id: int, pin_hash: str):
+    conn = _conn()
+    cur = conn.execute("UPDATE staff SET pin_hash=? WHERE id=?", (pin_hash, staff_id))
+    conn.commit()
+    conn.close()
+    return None if cur.rowcount == 0 else {"id": staff_id, "has_pin": bool(pin_hash)}
+
+
+def staff_with_pins():
+    """Active staff who already have a PIN — used to resolve a login, so the hash
+    comes back with the row (never leaves the server)."""
+    conn = _conn()
+    rows = conn.execute(
+        "SELECT id, name, pin_hash FROM staff WHERE archived=0 AND pin_hash <> '' "
+        "ORDER BY name").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def staff_view(staff_id: int, weeks: int = 12):
+    """Everything one person may see and nothing else: their line for the week that
+    concerns them, the week's table (transparent sharing — the venue's call), their
+    own advances and their own locked history.
+
+    "Their week" = the most recent week they actually worked, open or locked. Payday
+    is when a week is locked and a fresh empty week may already exist — nobody wants
+    to open their page and see zeros.
+    """
+    person = next((s for s in get_staff() if s["id"] == staff_id), None)
+    if person is None:
+        return None
+    out = {"staff": {"id": person["id"], "name": person["name"],
+                     "position": person["position"],
+                     "archived": bool(person["archived"])},
+           "week": None, "mine": None, "team": [], "vales": [], "history": []}
+
+    history, current, current_line = [], None, None
+    for w in get_weeks()[:weeks]:
+        full = get_week(w["id"])
+        line = next((x for x in full["entries"] if x["staff_id"] == staff_id), None)
+        worked = bool(line and line["hours"])
+        if worked and current is None:
+            current, current_line = full, line             # newest week they worked
+            continue
+        if worked and w["status"] == "locked":
+            history.append({"week_id": w["id"], "start_date": w["start_date"],
+                            "hours": line["hours"], "vales": line["vales"],
+                            "net": full["shares"].get(staff_id, 0.0)})
+
+    if current is None:                                    # no hours anywhere yet
+        ws = get_weeks()[:weeks]
+        current = get_week(ws[0]["id"]) if ws else None
+        if current:
+            current_line = next((x for x in current["entries"]
+                                 if x["staff_id"] == staff_id), None)
+
+    if current:
+        out["week"] = {
+            "id": current["id"], "start_date": current["start_date"],
+            "status": current["status"], "pool_eur": current["pool_eur"],
+            "total_hours": current["total_hours"],
+            "rate_per_hour": current["rate_per_hour"],
+            "statement": splitting.statement(current["pool_eur"], current["total_hours"]),
+        }
+        if current_line:
+            out["mine"] = {"hours": current_line["hours"], "vales": current_line["vales"],
+                           "gross": current["gross_shares"].get(staff_id, 0.0),
+                           "net": current["shares"].get(staff_id, 0.0)}
+        out["team"] = [{"name": e["name"], "hours": e["hours"],
+                        "vales": e["vales"],
+                        "gross": current["gross_shares"].get(e["staff_id"], 0.0),
+                        "net": current["shares"].get(e["staff_id"], 0.0),
+                        "me": e["staff_id"] == staff_id}
+                       for e in current["entries"] if e["hours"] or e["vales"]]
+
+    out["vales"] = get_vales(staff_id=staff_id)
+    out["history"] = history
+    return out
+
+
 # ---------- Weeks ----------
 
 def _hours_of(row) -> float:
@@ -428,6 +517,7 @@ def get_team():
         s = dict(r)
         s["vales_week"] = this_week.get(s["id"], 0.0)
         s["vales_total"] = totals.get(s["id"], 0.0)
+        s["has_pin"] = bool(s.pop("pin_hash", ""))     # the hash never leaves the server
         out.append(s)
     return {"week_id": week_id, "staff": out}
 

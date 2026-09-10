@@ -201,6 +201,24 @@
   .gate-box p { color: var(--faint); font-size: 13.5px; margin: 0 0 10px; }
   .gate-box input { font-family: var(--mono); font-size: 22px; text-align: center; letter-spacing: 6px; }
 
+
+  /* ---------- views + staff side ---------- */
+  .view { display: none; }
+  .view.active { display: block; }
+  .navbadge {
+    margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--faint);
+    border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; line-height: 18px;
+    min-width: 22px; text-align: center;
+  }
+  .navitem.active .navbadge { color: var(--muted); background: var(--panel); }
+  #staffPage { display: none; }
+  body.is-staff .app { display: none; }
+  body.is-staff #staffPage { display: block; }
+  #staffPage main { max-width: 720px; margin: 0 auto; }
+  .pinbtn { font-size: 11.5px; padding: 3px 8px; min-height: 26px; border-radius: 6px; }
+  .panel + .panel { margin-top: 12px; }
+  td .row { gap: 6px; }
+
   /* ---------- phone ---------- */
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; }
@@ -233,69 +251,118 @@
 <div class="app">
   <aside class="side">
     <div class="brand">
-      <span class="word">TipSplit</span><em>gorjetas</em><span class="ver">v0.6</span>
+      <span class="word">TipSplit</span><em>gorjetas</em>
+      <span class="ver" id="brandVer">v0.8</span>
     </div>
 
     <div class="grp">Semanas</div>
     <button id="newWeekBtn" class="navitem">+ Nova semana</button>
     <div id="weekList" class="sidenav"></div>
 
-    <div class="grp">Equipa</div>
-    <div id="teamList" class="sidenav"></div>
-
-    <div class="grp">Adiantamento</div>
-    <div class="row">
-      <select id="valeStaff" class="grow"></select>
-      <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width:78px">
-    </div>
-    <div class="row" style="margin-top: 6px;">
-      <input id="valeNote" class="grow" placeholder="motivo">
-      <button id="addValeBtn" class="sm">Add</button>
+    <div class="grp">Gerir</div>
+    <div class="sidenav">
+      <button class="navitem active" data-view="semana">
+        <span>Semana</span><span class="navbadge" id="badgeHoras">—</span></button>
+      <button class="navitem" data-view="equipa">
+        <span>Equipa</span><span class="navbadge" id="badgeEquipa">—</span></button>
+      <button class="navitem" data-view="definicoes"><span>Definições</span></button>
     </div>
 
-    <div class="grp">Nova pessoa</div>
-    <div class="row">
-      <input id="staffName" class="grow" placeholder="Nome">
-      <input id="staffPosition" placeholder="função" style="width:96px">
+    <div style="margin-top: auto; padding-top: 14px;">
+      <button class="navitem" id="logoutBtn"><span>Sair</span></button>
     </div>
-    <div class="row" style="margin-top: 6px;">
-      <button id="addStaffBtn" class="sm" style="width: 100%;">Adicionar à equipa</button>
-    </div>
-
-    <div class="grp">Definições</div>
-    <div class="row">
-      <input id="venueName" class="grow" placeholder="Nome da casa">
-      <button id="saveVenueBtn" class="sm">Guardar</button>
-    </div>
-    <div class="row" style="margin-top: 6px;">
-      <input id="newPin" type="password" inputmode="numeric" class="grow" placeholder="Novo PIN">
-      <input id="curPin" type="password" inputmode="numeric" placeholder="atual" style="width:78px">
-    </div>
-    <div class="row" style="margin-top: 6px;">
-      <button id="savePinBtn" class="sm">Alterar PIN</button>
-      <button id="logoutBtn" class="sm ghost">Sair</button>
-    </div>
-
-    <div class="grp">Alterações recentes</div>
-    <div id="auditList" class="audit">—</div>
   </aside>
 
   <main>
     <div class="mhead">
       <div>
         <div class="crumb">KAIDO · TipSplit</div>
-        <h1>Gorjetas</h1>
+        <h1 id="pageTitle">Semana</h1>
       </div>
       <a class="btn" id="annualBtn" href="#" style="margin-left: auto;">Anual (Excel)</a>
     </div>
 
-    <div class="stat-strip" id="dash"></div>
-    <div id="dashNote" class="hint"></div>
+    <!-- ---------- view: semana ---------- -->
+    <section class="view active" id="view-semana">
+      <div class="stat-strip" id="dash"></div>
+      <div id="dashNote" class="hint"></div>
+      <div id="missing"></div>
+      <div class="panel" id="detailPanel" style="margin-top: 16px;">
+        <div id="empty" class="empty">Escolhe uma semana à esquerda, ou cria uma nova.</div>
+        <div id="detail" class="hidden"></div>
+      </div>
+    </section>
 
-    <div class="panel" id="detailPanel" style="margin-top: 16px;">
-      <div id="empty" class="empty">Escolhe uma semana à esquerda, ou cria uma nova.</div>
-      <div id="detail" class="hidden"></div>
+    <!-- ---------- view: equipa ---------- -->
+    <section class="view" id="view-equipa">
+      <div class="panel">
+        <div class="panel-head"><h2>Equipa</h2>
+          <span class="hint" id="teamHint"></span></div>
+        <div id="teamPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Adiantamento (vale)</h2>
+        <div class="row">
+          <select id="valeStaff" class="grow"></select>
+          <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width: 96px">
+          <input id="valeNote" class="grow" placeholder="motivo">
+          <button id="addValeBtn">Registar</button>
+        </div>
+        <div id="valeList" style="margin-top: 10px;"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Nova pessoa</h2>
+        <div class="row">
+          <input id="staffName" class="grow" placeholder="Nome">
+          <input id="staffPosition" placeholder="função" style="width: 150px">
+          <button id="addStaffBtn">Adicionar à equipa</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- view: definições ---------- -->
+    <section class="view" id="view-definicoes">
+      <div class="panel">
+        <h2>A casa</h2>
+        <div class="row">
+          <div class="grow"><label>Nome da casa</label>
+            <input id="venueName" placeholder="Nome da casa"></div>
+          <button id="saveVenueBtn">Guardar</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>PIN do dono</h2>
+        <div class="row">
+          <div class="grow"><label>Novo PIN</label>
+            <input id="newPin" type="password" inputmode="numeric" placeholder="Novo PIN"></div>
+          <div class="grow"><label>PIN atual</label>
+            <input id="curPin" type="password" inputmode="numeric" placeholder="atual"></div>
+          <button id="savePinBtn">Alterar PIN</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Alterações recentes</h2></div>
+        <div id="auditList" class="audit">—</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ---------- the team's own page (variant B: own numbers + week's table) ---------- -->
+<div id="staffPage">
+  <main>
+    <div class="mhead">
+      <div>
+        <div class="crumb">TipSplit · equipa</div>
+        <h1>As minhas gorjetas</h1>
+      </div>
+      <button class="ghost" id="staffLogout">Sair</button>
     </div>
+    <div id="staffBody"></div>
   </main>
 </div>
 
@@ -348,14 +415,11 @@ async function submitGate() {
 async function boot() {
   const st = await api("/api/auth/status");            // public
   if (!st.pin_set) return showGate("setup");           // first run: protect the till
-  try {
-    await api("/api/dashboard");                       // probe: gated?
-  } catch (e) {
-    if (e.status === 401) return showGate("login");
-    throw e;
-  }
+  if (!st.role) return showGate("login");              // no session (or stale cookie)
+  if (st.role === "staff") return startStaff(st.name);  // the team's own page
   $("#gate").classList.add("hidden");
   loadWeeks(false);
+  showView("semana");
 }
 
 async function loadSettings() {
@@ -509,25 +573,10 @@ async function loadDash() {
 async function refreshSidebar() {
   const t = await api("/api/team");
   staffCache = t.staff;
-  const box = $("#teamList");
-  box.innerHTML = t.staff.length ? t.staff.map(s => `
-    <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; padding:3px 0;${s.archived ? "opacity:.45;" : ""}">
-      <span style="min-width:0">${esc(s.name)}${s.position ? ` <span style="color:var(--muted);font-size:13px">${esc(s.position)}</span>` : ""}</span>
-      <span style="white-space:nowrap;">
-        ${s.vales_week ? `<span style="color:var(--warn);font-size:14px;">${eur(s.vales_week)}</span>` : ""}
-        <button class="ghost small" data-arch="${s.id}" data-on="${s.archived ? 0 : 1}"
-          title="${s.archived ? "reativar" : "arquivar"}">${s.archived ? "↺" : "⊘"}</button>
-      </span>
-    </div>`).join("") : '<span style="color:var(--muted)">ninguém ainda</span>';
-  box.querySelectorAll("[data-arch]").forEach(b => b.addEventListener("click", async () => {
-    await api(`/api/staff/${b.dataset.arch}/archive?archived=${b.dataset.on}`, "POST");
-    refreshSidebar();
-  }));
-  $("#valeStaff").innerHTML = t.staff.filter(s => !s.archived)
-    .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
-    || '<option value="">—</option>';
-  loadDash();
-  loadSettings();
+  $("#badgeEquipa").textContent = t.staff.filter(s => !s.archived).length;
+  await loadDash();
+  // the roster itself lives in the Equipa view — refresh it only when it's on screen
+  if ($("#view-equipa").classList.contains("active")) await loadTeam();
 }
 
 // ---------- render: week detail ----------
@@ -608,6 +657,8 @@ async function openWeek(id) {
     </div>`;
 
   renderGrid(w);
+  renderMissing(w);
+  $("#badgeHoras").textContent = w.total_hours + " h";
   if (!locked) {
     $("#poolInput").addEventListener("input", () => scheduleSplit(w));
     $("#addRowBtn").addEventListener("click", () => addRow(w));
@@ -765,6 +816,181 @@ $("#logoutBtn").addEventListener("click", async () => {
   await api("/api/auth/logout", "POST");
   location.reload();
 });
+
+
+// ---------- views ----------
+function showView(name) {
+  document.querySelectorAll(".view").forEach(v =>
+    v.classList.toggle("active", v.id === "view-" + name));
+  document.querySelectorAll("[data-view]").forEach(b =>
+    b.classList.toggle("active", b.dataset.view === name));
+  const titles = { semana: "Semana", equipa: "Equipa", definicoes: "Definições" };
+  $("#pageTitle").textContent = titles[name] || "Semana";
+  if (name === "equipa") { loadTeam(); }
+  if (name === "definicoes") { loadSettings(); }
+}
+
+document.querySelectorAll("[data-view]").forEach(b =>
+  b.addEventListener("click", () => showView(b.dataset.view)));
+
+// ---------- equipa: roster, PINs, vale balances ----------
+let team = { staff: [], week_id: null };
+
+async function loadTeam() {
+  team = await api("/api/team");
+  const active = team.staff.filter(s => !s.archived);
+  $("#badgeEquipa").textContent = String(active.length);
+  $("#teamHint").textContent = `${active.length} ativa(s) · ${team.staff.length - active.length} arquivada(s)`;
+  $("#teamPanel").innerHTML = `
+    <div style="overflow-x:auto"><table>
+      <tr><th>Pessoa</th><th>Função</th><th class="num">Vales sem.</th>
+          <th class="num">Vales total</th><th>Acesso</th><th></th></tr>
+      ${team.staff.map(s => `
+        <tr${s.archived ? ' style="opacity:.45"' : ""}>
+          <td class="staff-name">${esc(s.name)}</td>
+          <td style="color:var(--muted)">${esc(s.position || "—")}</td>
+          <td class="num">${s.vales_week ? eur(s.vales_week) : "—"}</td>
+          <td class="num">${s.vales_total ? eur(s.vales_total) : "—"}</td>
+          <td style="color:${s.has_pin ? "var(--good)" : "var(--faint)"};font-size:13px">
+            ${s.has_pin ? "PIN ✓" : "sem PIN"}</td>
+          <td class="num" style="white-space:nowrap">
+            <button class="ghost pinbtn" data-pin="${s.id}">${s.has_pin ? "trocar" : "dar PIN"}</button>
+            ${s.has_pin ? `<button class="ghost pinbtn" data-clearpin="${s.id}">limpar</button>` : ""}
+            <button class="ghost pinbtn" data-arch="${s.id}" data-archived="${s.archived ? 1 : 0}">
+              ${s.archived ? "↺" : "⊘"}</button>
+          </td>
+        </tr>`).join("")}
+    </table></div>`;
+
+  $("#teamPanel").querySelectorAll("[data-pin]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const pin = prompt("PIN (4+ dígitos) para esta pessoa:");
+      if (!pin) return;
+      try {
+        await api(`/api/staff/${b.dataset.pin}/pin`, "POST", { pin: pin.trim() });
+        toast("PIN definido"); loadTeam();
+      } catch (e) { toast(e.status === 400 ? "PIN inválido ou já usado" : "Erro"); }
+    }));
+  $("#teamPanel").querySelectorAll("[data-clearpin]").forEach(b =>
+    b.addEventListener("click", async () => {
+      await api(`/api/staff/${b.dataset.clearpin}/pin`, "POST", { pin: "" });
+      toast("PIN apagado"); loadTeam();
+    }));
+  $("#teamPanel").querySelectorAll("[data-arch]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const back = b.dataset.archived === "1";
+      await api(`/api/staff/${b.dataset.arch}/archive?archived=${back ? "false" : "true"}`, "POST");
+      toast(back ? "Reativada" : "Arquivada"); loadTeam(); loadWeeks(false);
+    }));
+
+  // vale form: only active people
+  $("#valeStaff").innerHTML = active
+    .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
+    || '<option value="">—</option>';
+  $("#valeList").innerHTML = team.staff.some(s => s.vales_total) ? `
+    <table><tr><th>Pessoa</th><th class="num">Esta semana</th><th class="num">Total em dívida</th></tr>
+      ${team.staff.filter(s => s.vales_total).map(s => `
+        <tr><td>${esc(s.name)}</td>
+            <td class="num">${s.vales_week ? eur(s.vales_week) : "—"}</td>
+            <td class="num">${eur(s.vales_total)}</td></tr>`).join("")}
+    </table>` : '<div class="hint">Sem adiantamentos registados.</div>';
+}
+
+// ---------- quem falta preencher ----------
+function renderMissing(w) {
+  const got = new Set(w.entries.filter(e => e.hours > 0).map(e => e.staff_id));
+  const missing = staffCache.filter(s => !s.archived && !got.has(s.id));
+  $("#missing").innerHTML = !missing.length ? "" : `
+    <div class="statement" style="border-left-color:var(--warn);background:rgba(224,184,76,.10);margin-top:14px">
+      <b style="color:var(--warn)">Faltam horas de ${missing.length} pessoa${missing.length > 1 ? "s" : ""}</b>
+      — ${missing.map(s => esc(s.name)).join(", ")}. Antes de fechar a semana.
+    </div>`;
+}
+
+// ---------- the team's own page (variant B) ----------
+async function startStaff(name) {
+  document.body.classList.add("is-staff");
+  $("#gate").classList.add("hidden");
+  const d = await api("/api/me");
+  const w = d.week, mine = d.mine || { hours: 0, gross: 0, vales: 0, net: 0 };
+  const cards = w ? [
+    ["Horas esta semana", `${mine.hours || 0}`],
+    ["Rateio", eur(mine.gross || 0)],
+    ["Adiantamentos", eur(mine.vales || 0)],
+    ["A receber", eur(mine.net || 0)],
+  ] : [["Semana", "sem dados"]];
+
+  $("#staffBody").innerHTML = `
+    <div class="stat-strip">${cards.map(([c, n]) =>
+      `<div class="stat"><div class="cap">${c}</div><div class="num">${n}</div></div>`).join("")}</div>
+
+    ${w ? `
+    <div class="panel" style="margin-top:12px">
+      <div class="week-header">
+        <div><h2>Semana de ${fmtDate(w.start_date)}</h2>
+          <div class="week-facts">${mine.hours || 0} h trabalhadas · ${eur(w.rate_per_hour)}/h</div></div>
+        <span class="badge">${w.status === "locked" ? "fechada" : "aberta"}</span>
+      </div>
+      <table>
+        <tr><th>Horas</th><td class="num">${mine.hours || 0} h</td></tr>
+        <tr><th>Rateio (horas ÷ total)</th><td class="num">${eur(mine.gross || 0)}</td></tr>
+        <tr><th>Adiantamentos (vales)</th><td class="num">− ${eur(mine.vales || 0)}</td></tr>
+        <tr class="total"><td>A receber</td><td class="num net-share">${eur(mine.net || 0)}</td></tr>
+      </table>
+      <div class="statement">${esc(w.statement)}</div>
+      ${w.status === "locked"
+        ? `<a class="btn" href="/print/me/${w.id}" target="_blank" rel="noopener">Comprovativo</a>`
+        : '<div class="hint">O comprovativo fica disponível quando a semana fechar.</div>'}
+    </div>` : '<div class="panel" style="margin-top:12px"><div class="hint">Ainda não há semana aberta.</div></div>'}
+
+    ${d.team.length ? `
+    <div class="panel" style="margin-top:12px">
+      <div class="cap" style="margin-bottom:6px">A divisão desta semana
+        (pool ${eur(w.pool_eur)} · ${w.total_hours} h · ${eur(w.rate_per_hour)}/h)</div>
+      <div style="overflow-x:auto"><table>
+        <tr><th>Pessoa</th><th class="num">Horas</th><th class="num">Rateio</th>
+            <th class="num">Adiant.</th><th class="num">A receber</th></tr>
+        ${d.team.map(t => `<tr${t.me ? ' style="background:var(--accent-dim)"' : ""}>
+          <td class="staff-name">${esc(t.name)}${t.me ? " (eu)" : ""}</td>
+          <td class="num">${t.hours} h</td>
+          <td class="num">${eur(t.gross)}</td>
+          <td class="num vales-cell">${t.vales ? "− " + eur(t.vales) : "—"}</td>
+          <td class="num net-share">${eur(t.net)}</td></tr>`).join("")}
+        <tr class="total"><td>${d.team.length} pessoas</td>
+          <td class="num">${w.total_hours} h</td>
+          <td class="num">${eur(d.team.reduce((a, t) => a + t.gross, 0))}</td>
+          <td class="num vales-cell">− ${eur(d.team.reduce((a, t) => a + t.vales, 0))}</td>
+          <td class="num">${eur(d.team.reduce((a, t) => a + t.net, 0))}</td></tr>
+      </table></div>
+      <div class="hint" style="margin-top:6px">
+        Adiantamentos já pagos durante a semana saem do pool:
+        ${eur(w.pool_eur)} − ${eur(d.team.reduce((a, t) => a + t.vales, 0))} =
+        ${eur(d.team.reduce((a, t) => a + t.net, 0))} para pagar agora.
+        Todos veem o mesmo número — é o que torna a divisão difícil de discutir.
+      </div>
+    </div>` : ""}
+
+    ${d.vales.length ? `
+    <div class="panel" style="margin-top:12px">
+      <div class="cap" style="margin-bottom:6px">Os meus adiantamentos</div>
+      <table><tr><th>Data</th><th>Motivo</th><th class="num">Valor</th></tr>
+        ${d.vales.map(v => `<tr><td>${esc((v.date || "").slice(0, 10))}</td>
+          <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+          <td class="num">${eur(v.amount)}</td></tr>`).join("")}
+      </table></div>` : ""}
+
+    ${d.history.length ? `
+    <div class="panel" style="margin-top:12px">
+      <div class="cap" style="margin-bottom:6px">Histórico</div>
+      <table><tr><th>Semana</th><th class="num">Horas</th><th class="num">A receber</th></tr>
+        ${d.history.map(h => `<tr><td>${fmtDate(h.start_date)}</td>
+          <td class="num">${h.hours} h</td><td class="num net-share">${eur(h.net)}</td></tr>`).join("")}
+      </table></div>` : ""}`;
+  $("#staffLogout").addEventListener("click", async () => {
+    await api("/api/auth/logout", "POST");
+    location.reload();
+  });
+}
 
 window.addEventListener("load", () => {
   $("#annualBtn").href = `/api/export/annual/${new Date().getFullYear()}?fmt=xlsx`;

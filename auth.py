@@ -65,25 +65,41 @@ def _secret() -> str:
 
 
 def cookie_valid(value: str | None) -> bool:
+    """Kept for callers that only care whether a session exists."""
+    return session_from_token(value) is not None
+
+
+def session_from_token(value: str | None):
+    """('owner', None) | ('staff', staff_id) | None (expired, forged, malformed).
+
+    Token = role.staff_id.exp.signature — the role and the person are signed, so a
+    staff cookie can never be edited into an owner one.
+    """
     if not value:
-        return False
+        return None
     parts = value.split(".")
-    if len(parts) != 2:
-        return False
-    exp, sig = parts
-    expect = hmac.new(_secret().encode(), exp.encode(), hashlib.sha256).hexdigest()
+    if len(parts) != 4:
+        return None
+    role, sid, exp, sig = parts
+    if role not in ("owner", "staff"):
+        return None
+    expect = hmac.new(_secret().encode(), f"{role}.{sid}.{exp}".encode(),
+                      hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expect):
-        return False
+        return None
     try:
-        return int(exp) > time.time()
+        if int(exp) <= time.time():
+            return None
+        return ("owner", None) if role == "owner" else ("staff", int(sid))
     except ValueError:
-        return False
+        return None
 
 
-def make_cookie() -> str:
+def make_cookie(role: str = "owner", staff_id: int | None = None) -> str:
     exp = str(int(time.time()) + _MAX_AGE)
-    sig = hmac.new(_secret().encode(), exp.encode(), hashlib.sha256).hexdigest()
-    return (f"{COOKIE}={exp}.{sig}; Path=/; HttpOnly; SameSite=Lax; "
+    payload = f"{role}.{staff_id or ''}.{exp}"
+    sig = hmac.new(_secret().encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return (f"{COOKIE}={payload}.{sig}; Path=/; HttpOnly; SameSite=Lax; "
             f"Max-Age={_MAX_AGE}")
 
 

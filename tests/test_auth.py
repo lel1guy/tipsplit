@@ -41,7 +41,8 @@ def test_cookie_signature_and_expiry(fresh):
     assert auth.cookie_valid(value) is True
     assert auth.cookie_valid(value[:-1] + ("0" if value[-1] != "0" else "1")) is False
     assert auth.cookie_valid("") is False and auth.cookie_valid(None) is False
-    expired = f"{int(time.time()) - 10}." + value.split(".", 1)[1]
+    role, sid, exp, sig = value.split(".")
+    expired = f"{role}.{sid}.{int(time.time()) - 10}.{sig}"
     assert auth.cookie_valid(expired) is False
 
 

@@ -56,7 +56,10 @@ async function run() {
   browser = await chromium.launch({ executablePath: findChromium() });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
-  page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "horas da Ana estavam mal" : undefined));
+  // dialogs: prompts get queued answers (staff PIN, then the unlock reason)
+  const promptQueue = ["4321", "horas da Ana estavam mal"];
+  page.on("dialog", (d) =>
+    d.accept(d.type() === "prompt" ? promptQueue.shift() : undefined));
 
   // ---- 1. first run: the gate asks for a new PIN ----
   await page.goto(BASE, { waitUntil: "networkidle" });
@@ -72,7 +75,9 @@ async function run() {
   ok("dashboard shows the week's numbers", stats.length >= 4, JSON.stringify(stats));
   ok("dashboard names the pool + advances",
      stats.join("|").includes("Pool") && stats.join("|").includes("Adiantamentos"), stats.join("|"));
-  ok("team roster rendered", (await page.$$("#teamList > div")).length >= 5);
+  ok("sidebar shows the active headcount",
+     /^\d+$/.test((await page.textContent("#badgeEquipa")).trim()),
+     await page.textContent("#badgeEquipa"));
   ok("seeded week listed", (await page.$$("#weekList .week-item")).length >= 1);
   ok("brand + version in the sidebar", (await page.textContent(".brand")).includes("TipSplit"));
 
@@ -109,7 +114,7 @@ async function run() {
   ok("pool persisted", (await page.inputValue("#poolInput")) === "100");
   ok("hours persisted", (await page.textContent("#statHours")).trim() === "60");
 
-  // ---- 6. vale lands in the ledger and cuts the net ----
+  // ---- 6. vale: recorded in Equipa, visible on the week ----
   const netText = async () => {
     await page.waitForFunction(() =>
       !document.querySelector("#gridBody tr:nth-child(1) [data-net]").textContent.includes("—"),
@@ -118,17 +123,32 @@ async function run() {
   };
   const parse = (t) => parseFloat(String(t).replace(/[^\d.,]/g, "").replace(",", "."));
   const netBefore = parse(await netText());
+
+  await page.click('[data-view="equipa"]');               // the forms moved into this view
+  await page.waitForSelector("#teamPanel table");
+  ok("equipa view lists the roster with access state",
+     (await page.textContent("#teamPanel")).includes("sem PIN"));
   await page.fill("#valeAmount", "10");
   await page.fill("#valeNote", "adiantamento qa");
   await page.click("#addValeBtn");
   await sleep(900);
+  ok("vale listed under the person",
+     (await page.textContent("#valeList")).includes("10,00"));
+  await page.click("#teamPanel [data-pin]");               // prompt answers "4321"
+  await page.waitForFunction(() =>
+    document.querySelector("#teamPanel").textContent.includes("PIN ✓"),
+    null, { timeout: 15000 });
+  ok("staff PIN issued from Equipa",
+     (await page.textContent("#teamPanel")).includes("PIN ✓"));
+
+  await page.click('[data-view="semana"]');
+  await page.click("#weekList .week-item");
+  await page.waitForSelector("#poolInput");
   const netAfter = parse(await netText());
-  ok("vale deducted from the net", Math.abs((netBefore - netAfter) - 10) < 0.02, `${netBefore} -> ${netAfter}`);
+  ok("vale deducted from the net", Math.abs((netBefore - netAfter) - 10) < 0.02,
+     `${netBefore} -> ${netAfter}`);
   ok("vale visible in the week grid",
      (await page.textContent("#gridBody tr:nth-child(1) [data-vales]")).includes("10"));
-  ok("advance listed under the person",
-     (await page.textContent("#teamList")).includes("10,00 €") ||
-     (await page.textContent("#teamList")).includes("10"));
 
   // ---- 7. lock the week ----
   await page.click("#lockBtn");
@@ -189,13 +209,62 @@ async function run() {
   ok("sidebar stacks above content on a phone", m.stacked === 1, `cols=${m.stacked}`);
   await phone.screenshot({ path: SHOT, fullPage: true });
 
-  // ---- 12. logout re-arms the gate ----
+  // ---- 12. the team's own page: a staff login sees their numbers and nothing else ----
+  await page.click('[data-view="semana"]');
+  await page.click("#weekList .week-item");
+  await page.waitForSelector("#poolInput");
+  await page.click("#lockBtn");                            // payslip needs a settled week
+  await page.waitForSelector(".badge", { timeout: 10000 });
+
   await page.click("#logoutBtn");
   await page.waitForSelector("#gate:not(.hidden)", { timeout: 5000 });
   ok("logout returns to the PIN gate",
      (await page.textContent("#gateTitle")).includes("PIN da casa"));
   const probe = await page.request.get(BASE + "/api/dashboard");
   ok("API refuses anonymous callers", probe.status() === 401, `status=${probe.status()}`);
+
+  await page.fill("#gatePin", "4321");
+  await page.click("#gateBtn");
+  await page.waitForFunction(() => document.body.classList.contains("is-staff"),
+                             null, { timeout: 15000 });
+  const staffBody = await page.textContent("#staffBody");
+  ok("staff lands on their own page",
+     (await page.textContent("#staffPage h1")).includes("As minhas gorjetas"),
+     (await page.textContent("#staffPage h1")).slice(0, 40));
+  ok("staff sees their own line", staffBody.includes("Rateio"));
+  ok("staff sees the week's table (variant B)", staffBody.includes("(eu)"));
+  ok("staff table reconciles: rateio, advances, net",
+     staffBody.includes("Adiant.") && staffBody.includes("para pagar agora"),
+     staffBody.includes("Adiant.") ? "no reconciliation line" : "no advances column");
+  ok("staff gets a provable statement", staffBody.includes("Regra"));
+  ok("staff can open their own payslip", (await page.$$('a[href^="/print/me/"]')).length === 1,
+     staffBody.includes("aberta") ? "week shown as OPEN" : staffBody.slice(0, 120));
+  const weekId2 = (await page.getAttribute('a[href^="/print/me/"]', "href")).match(/me\/(\d+)/)[1];
+  const myPay = await page.request.get(`${BASE}/print/me/${weekId2}`);
+  ok("own payslip renders for the staff session", myPay.status() === 200, `status=${myPay.status()}`);
+
+  const leaked = [];
+  for (const path of ["/api/settings", "/api/audit", "/api/dashboard", "/api/team",
+                      "/api/weeks/1", "/api/staff", `/print/payslips/${weekId2}`,
+                      `/api/export/annual/2026?fmt=csv`]) {
+    const r = await page.request.get(BASE + path);
+    if (r.status() !== 403) leaked.push(`${path}=${r.status()}`);
+  }
+  ok("staff is 403 everywhere except /api/me and their own payslip",
+     leaked.length === 0, leaked.join(" "));
+  ok("staff can read /api/me", (await page.request.get(BASE + "/api/me")).status() === 200);
+
+  const phone2 = await ctx.newPage();
+  await phone2.setViewportSize({ width: 390, height: 844 });
+  await phone2.goto(BASE, { waitUntil: "networkidle" });
+  await phone2.waitForSelector("#staffPage");
+  const m2 = await phone2.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - window.innerWidth,
+    btn: Math.round(document.querySelector("#staffLogout").getBoundingClientRect().height),
+  }));
+  ok("staff page: no horizontal scroll at 390px", m2.overflow <= 1, `overflow=${m2.overflow}`);
+  ok("staff page: tappable logout", m2.btn >= 44, `btn=${m2.btn}`);
+  await phone2.screenshot({ path: "/tmp/tipsplit-staff-phone.png", fullPage: true });
 }
 
 try {

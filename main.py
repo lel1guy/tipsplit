@@ -305,6 +305,10 @@ async def security_headers(request: Request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "same-origin"
+    # never let a browser reuse an auth answer or a 401 — a cached "no PIN" or a
+    # cached 401 makes the app look broken at exactly the wrong moment
+    if request.url.path.startswith(("/api/", "/print/")):
+        resp.headers["Cache-Control"] = "no-store"
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
@@ -314,21 +318,38 @@ async def security_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def pin_gate(request: Request, call_next):
-    """Once a PIN exists everything is gated except the page, /static and the
-    auth routes — payslips and exports carry money, so /print is gated too."""
+    """Once the owner PIN exists everything is gated except the page, /static and the
+    auth routes. A staff session reaches exactly one thing: its own numbers."""
     path = request.url.path
     public = (path.startswith("/static") or path.startswith("/api/auth/")
               or path in ("/", "/favicon.ico"))
     if public or not auth.pin_is_set():
         return await call_next(request)
-    if not auth.cookie_valid(request.cookies.get(auth.COOKIE)):
+    session = auth.session_from_token(request.cookies.get(auth.COOKIE))
+    if session is None:
         return JSONResponse({"detail": "PIN necessário"}, status_code=401)
+    role, staff_id = session
+    request.state.role, request.state.staff_id = role, staff_id
+    if role == "staff":
+        allowed = (path == "/api/me" or path.startswith("/print/me/")
+                   or path == "/api/auth/logout")
+        if not allowed:
+            return JSONResponse({"detail": "Só os teus números"}, status_code=403)
     return await call_next(request)
 
 
 @app.get("/api/auth/status")
-def auth_status():
-    return {"pin_set": auth.pin_is_set()}
+def auth_status(request: Request):
+    session = auth.session_from_token(request.cookies.get(auth.COOKIE))
+    out = {"pin_set": auth.pin_is_set(), "role": None, "name": None,
+           "staff_with_pins": len(db.staff_with_pins())}
+    if session:
+        role, sid = session
+        out["role"] = role
+        if role == "staff":
+            person = next((s for s in db.get_staff() if s["id"] == sid), None)
+            out["name"] = person["name"] if person else None
+    return out
 
 
 @app.post("/api/auth/setup")
@@ -345,14 +366,24 @@ def auth_setup(p: PinIn):
 
 @app.post("/api/auth/login")
 def auth_login(p: PinIn, request: Request):
+    """One field for everybody: the owner PIN opens the management side, a staff PIN
+    opens that person's own page."""
     ip = request.client.host if request.client else "?"
     if auth.too_many_attempts(ip):
         raise HTTPException(429, "Demasiadas tentativas — espera 5 minutos")
-    if not auth.check_pin(p.pin.strip()):
-        auth.note_failure(ip)
-        raise HTTPException(401, "PIN errado")
-    auth.clear_failures(ip)
-    return JSONResponse({"ok": True}, headers={"set-cookie": auth.make_cookie()})
+    pin = p.pin.strip()
+    if auth.check_pin(pin):
+        auth.clear_failures(ip)
+        return JSONResponse({"ok": True, "role": "owner"},
+                            headers={"set-cookie": auth.make_cookie("owner")})
+    for s in db.staff_with_pins():            # ~80 ms per person, fine on a LAN
+        if auth.verify_pin(pin, s["pin_hash"]):
+            auth.clear_failures(ip)
+            db.audit("auth.staff_login", s["name"])
+            return JSONResponse({"ok": True, "role": "staff", "name": s["name"]},
+                                headers={"set-cookie": auth.make_cookie("staff", s["id"])})
+    auth.note_failure(ip)
+    raise HTTPException(401, "PIN errado")
 
 
 @app.post("/api/auth/logout")
@@ -393,3 +424,61 @@ def put_settings(s: SettingsIn):
 @app.get("/api/audit")
 def list_audit(limit: int = 25):
     return db.get_audit(limit)
+
+
+# ---------- The team's own page (/equipa) ----------
+
+class StaffPinIn(BaseModel):
+    pin: str = ""
+
+
+def _require_staff(request: Request) -> int:
+    sid = getattr(request.state, "staff_id", None)
+    if getattr(request.state, "role", None) != "staff" or sid is None:
+        raise HTTPException(403, "Só para sessões de equipa")
+    return sid
+
+
+@app.get("/api/me")
+def me(request: Request):
+    """A staff session's whole world: own line, the week's table, own advances and
+    own locked history. The roster never reaches this endpoint."""
+    view = db.staff_view(_require_staff(request))
+    if view is None:
+        raise HTTPException(404, "Pessoa não encontrada")
+    return view
+
+
+@app.get("/print/me/{week_id}", response_class=HTMLResponse)
+def print_my_payslip(week_id: int, request: Request):
+    sid = _require_staff(request)
+    wk = db.get_week(week_id)
+    if not wk:
+        raise HTTPException(404, "Week not found")
+    if wk["status"] != "locked":
+        raise HTTPException(409, "Semana ainda não fechada")
+    mine = [e for e in wk["entries"] if e["staff_id"] == sid]
+    if not mine:
+        raise HTTPException(404, "Sem horas nesta semana")
+    return exporters.payslips_html(dict(wk, entries=mine),
+                                   db.get_setting("venue_name"))
+
+
+@app.post("/api/staff/{staff_id}/pin")
+def set_staff_pin(staff_id: int, p: StaffPinIn):
+    """Owner issues or clears a person's PIN. Duplicates are refused: two people
+    sharing a PIN means one of them reads the other's money."""
+    pin = p.pin.strip()
+    if pin and len(pin) < 4:
+        raise HTTPException(400, "PIN demasiado curto (mínimo 4)")
+    if pin:
+        if auth.check_pin(pin):
+            raise HTTPException(400, "Esse PIN é o do dono — escolhe outro")
+        for s in db.staff_with_pins():
+            if s["id"] != staff_id and auth.verify_pin(pin, s["pin_hash"]):
+                raise HTTPException(400, f"PIN já usado por {s['name']}")
+    out = db.set_staff_pin(staff_id, auth.hash_pin(pin) if pin else "")
+    if out is None:
+        raise HTTPException(404, "Pessoa não encontrada")
+    db.audit("staff.pin_definido" if pin else "staff.pin_apagado", f"staff={staff_id}")
+    return out

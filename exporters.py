@@ -161,7 +161,8 @@ def _slip(week: dict, e: dict, venue: str) -> str:
     {("· " + escape(e["position"])) if e.get("position") else ""}</div>
   <table>
     <tr><th>Horas trabalhadas</th><td class="num">{e["hours"]:g} h</td></tr>
-    <tr><th>Rateio (horas ÷ total)</th><td class="num">{_euros(gross)}</td></tr>
+    <tr><th>Rateio ({e["hours"]:g} h ÷ {week["total_hours"]:g} h)</th>
+      <td class="num">{_euros(gross)}</td></tr>
     <tr><th>Adiantamentos (vales)</th><td class="num">− {_euros(vale)}</td></tr>
     <tr class="total"><td>A receber</td><td class="num">{_euros(net)}</td></tr>
   </table>

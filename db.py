@@ -17,6 +17,7 @@ week total drives the split:
 
 Vales are dated ledger rows (migration 002) — never a stored week total.
 """
+import os
 import random
 import sqlite3
 from pathlib import Path
@@ -24,7 +25,7 @@ from pathlib import Path
 import splitting
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "tipsplit.db"
+DB_PATH = Path(os.environ.get("TIPSPLIT_DB", BASE_DIR / "tipsplit.db"))
 MIGRATIONS_DIR = BASE_DIR / "migrations"
 
 SCHEMA = """

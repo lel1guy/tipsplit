@@ -5,120 +5,214 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TipSplit</title>
 <style>
+  /* TipSplit palette (kept) + BarSpec's design language: sidebar shell, eyebrow
+     labels, serif headings, mono numerals, top-accent stat cards. */
   :root {
-    --bg: #0e1210;
-    --panel: #161d19;
+    --bg: #0d1411;
+    --side: #0a100d;
+    --panel: #131b16;
+    --panel2: #18211b;
+    --hover: #1d271f;
     --ink: #eaf2ec;
     --muted: #9fb3a6;
+    --faint: #7e9285;
+    --line: rgba(150, 200, 168, .14);
+    --line2: rgba(150, 200, 168, .28);
     --accent: #5bbf7f;
-    --line: #2a352e;
+    --accent-hi: #7fd2a2;
+    --accent-dim: rgba(91, 191, 127, .13);
     --good: #5bbf7f;
-    --danger: #d96c5f;
     --warn: #e0b84c;
+    --danger: #d96c5f;
+    --cream: #f2f7f3;
+    --r: 12px;
+    /* system stacks in the same ROLES as BarSpec's webfonts — no network fonts,
+       so the app still looks right on a venue's offline LAN */
+    --serif: Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; }   /* width:100% + padding must not overflow (again) */
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 18px; line-height: 1.5;
+    font-family: var(--sans); font-size: 16px; line-height: 1.55;
+    min-height: 100vh;
   }
-  header {
-    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
-    padding: 14px 20px; border-bottom: 1px solid var(--line);
-  }
-  header h1 { margin: 0; font-size: 26px; color: var(--accent); }
-  header .tag { color: var(--muted); font-size: 15px; }
-  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
-  @media (max-width: 850px) { main { grid-template-columns: 1fr; } }
+  .app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-  button {
-    background: var(--accent); color: #0a120d; border: 0; border-radius: 6px;
-    font-size: 16px; font-weight: 600; padding: 8px 14px; cursor: pointer;
+  /* ---------- sidebar ---------- */
+  .side {
+    background: var(--side); border-right: 1px solid var(--line);
+    padding: 16px 12px 22px; display: flex; flex-direction: column; gap: 2px;
   }
-  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  button.small { font-size: 14px; padding: 4px 10px; }
-  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-  a.btn {
-    display: inline-block; background: transparent; color: var(--ink);
-    border: 1px solid var(--line); border-radius: 6px; font-size: 14px;
-    padding: 5px 10px; text-decoration: none;
+  .brand { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px 18px; }
+  .brand .word { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--cream); }
+  .brand .word em { font-style: italic; color: var(--accent); font-weight: 500; }
+  .brand .ver { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+  .grp {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--faint); padding: 13px 10px 6px;
   }
-  a.btn:hover { filter: brightness(1.2); }
-  button:hover { filter: brightness(1.1); }
-  input {
-    background: #1f2a23; color: var(--ink); border: 1px solid var(--line);
-    border-radius: 6px; font-size: 17px; padding: 6px 8px; width: 100%;
-  }
-  input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
-  label { display: block; color: var(--muted); font-size: 14px; margin: 8px 0 3px; }
-  .row { display: flex; gap: 8px; align-items: end; }
-  .row .grow { flex: 1; }
+  .sidenav { display: flex; flex-direction: column; gap: 2px; }
 
-  #weekList .week-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  .navitem, #weekList .week-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 11px; border-radius: 9px; border: 1px solid transparent;
+    background: transparent; color: var(--muted); font-family: var(--sans);
+    font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: left;
+    min-height: 44px; width: 100%;
   }
-  #weekList .week-item:hover { background: #1c261f; }
-  #weekList .week-item.active { background: #1d2a21; border: 1px solid var(--accent); }
+  .navitem:hover, #weekList .week-item:hover { background: var(--panel); color: var(--ink); }
+  #weekList .week-item.active {
+    background: var(--accent-dim); border-color: var(--accent); color: var(--cream);
+  }
   .week-date { font-weight: 600; }
-  .week-pool { color: var(--muted); font-size: 14px; }
-
-  .week-header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .week-header h2 { margin: 0 0 4px; font-size: 26px; }
-  .badge { font-size: 13px; font-weight: 500; color: var(--muted); border: 1px solid #2a332c; border-radius: 999px; padding: 2px 8px; vertical-align: middle; }
-  .statement { margin: 10px 0 14px; padding: 8px 12px; border-left: 3px solid var(--accent); background: #1c261f; color: var(--muted); font-size: 14px; border-radius: 4px; }
-  .week-facts { color: var(--muted); font-size: 15px; }
-
-  .stat-strip { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
-  .stat {
-    background: #1f2a23; border: 1px solid var(--line); border-radius: 8px;
-    padding: 8px 16px; min-width: 130px;
+  .week-pool { color: var(--faint); font-size: 12.5px; font-family: var(--mono); }
+  #teamList > div {
+    color: var(--muted); font-size: 14px; display: flex; justify-content: space-between;
+    gap: 6px; align-items: center; white-space: nowrap; overflow: hidden;
   }
-  .stat .num { font-size: 24px; font-weight: 700; color: var(--accent); }
-  .stat .cap { font-size: 13px; color: var(--muted); }
+  #teamList > div > span { overflow: hidden; text-overflow: ellipsis; }
+  .audit { font-size: 12px; color: var(--faint); font-family: var(--mono); line-height: 1.7;
+           overflow-wrap: anywhere; }
+  .audit div { padding: 1px 0; }
 
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { text-align: left; color: var(--muted); font-size: 14px; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  /* ---------- main ---------- */
+  main { padding: 22px 26px 40px; max-width: 1150px; min-width: 0; }
+  .mhead { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .crumb {
+    color: var(--faint); font-size: 10.5px; font-family: var(--mono); font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .mhead h1 { font-family: var(--serif); font-size: 27px; font-weight: 600; margin: 2px 0 0; color: var(--cream); }
+  .hint { color: var(--faint); font-size: 13px; margin-top: 4px; }
+  .empty { color: var(--faint); text-align: center; padding: 44px 0; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r);
+    padding: 16px 18px;
+  }
+  .panel h2 { margin: 0 0 10px; font-size: 17px; font-weight: 700; }
+  .row { display: flex; gap: 8px; align-items: end; }
+  .row .grow, .grow { flex: 1; min-width: 0; }
+
+  /* stat cards: top accent line + eyebrow caption + mono number (BarSpec shape) */
+  .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
+  .stat {
+    position: relative; background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 13px; overflow: hidden;
+  }
+  .stat::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 1.5px;
+    background: var(--accent); opacity: .55;
+  }
+  .stat .num {
+    font-family: var(--mono); font-size: 23px; font-weight: 700;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+  }
+  .stat .cap {
+    font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ---------- controls ---------- */
+  button {
+    background: var(--accent); color: #08130c; border: 0; border-radius: 9px;
+    font-family: var(--sans); font-size: 14px; font-weight: 600;
+    padding: 9px 15px; min-height: 40px; cursor: pointer;
+  }
+  button.ghost, button.sm.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line2); }
+  button.ghost:hover { color: var(--ink); background: var(--hover); }
+  button.sm { font-size: 12.5px; padding: 5px 11px; min-height: 32px; border-radius: 7px; }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button:hover { filter: brightness(1.08); }
+  a.btn {
+    display: inline-block; background: transparent; color: var(--muted);
+    border: 1px solid var(--line2); border-radius: 9px; font-size: 12.5px;
+    font-weight: 600; padding: 6px 12px; min-height: 32px; text-decoration: none;
+  }
+  a.btn:hover { color: var(--ink); background: var(--hover); }
+  select, input {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line2);
+    border-radius: 8px; font-family: var(--sans); font-size: 15px; padding: 8px 10px;
+    width: 100%; min-width: 0;
+  }
+  input[type=number] { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  input::placeholder { color: var(--faint); }
+  label {
+    display: block; color: var(--faint); font-size: 10.5px; font-weight: 700;
+    letter-spacing: .11em; text-transform: uppercase; margin: 8px 0 3px;
+  }
+
+  /* ---------- week view ---------- */
+  .week-header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .week-header h2 { font-family: var(--serif); font-size: 24px; font-weight: 600; margin: 0 0 4px; color: var(--cream); }
+  .week-facts { color: var(--faint); font-size: 13px; }
+  .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--warn); border: 1px solid var(--line2); border-radius: 999px; padding: 2px 9px;
+    vertical-align: middle;
+  }
+  .statement {
+    margin: 12px 0 14px; padding: 9px 13px; border-left: 3px solid var(--accent);
+    background: var(--accent-dim); color: var(--muted); font-size: 13.5px; border-radius: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th {
+    text-align: left; color: var(--faint); font-size: 10px; font-weight: 700;
+    letter-spacing: .11em; text-transform: uppercase; padding: 6px 8px;
+    border-bottom: 1px solid var(--line2);
+  }
   th.num, td.num { text-align: right; }
-  td { padding: 6px 8px; border-bottom: 1px solid #223027; font-size: 17px; vertical-align: middle; }
-  td input { padding: 4px 6px; font-size: 16px; }
-  td.staff-name { font-weight: 600; }
-  .total-row td { border-top: 2px solid var(--line); border-bottom: none; font-weight: 700; }
-  .net-share { font-weight: 700; color: var(--accent); }
-  .vales-cell { color: var(--warn); font-size: 14px; }
-  .hidden { display: none; }
-  #empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  td {
+    padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 15px;
+    vertical-align: middle; font-variant-numeric: tabular-nums;
+  }
+  td input { padding: 5px 7px; font-size: 15px; min-height: 34px; }
+  td.staff-name { font-weight: 600; color: var(--cream); }
+  .net-share { font-family: var(--mono); font-weight: 700; color: var(--accent); }
+  .vales-cell { font-family: var(--mono); font-size: 13px; }
+  .edit-note { color: var(--faint); font-size: 13px; margin-top: 10px; }
+
+  .check { font-size: 13px; margin-left: 8px; }
+  .check.ok { color: var(--good); }
+  .check.bad { color: var(--warn); }
+  .hidden { display: none !important; }   /* #gate is an id — plain .hidden loses on specificity */
+
   .toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: #1d2a21; color: var(--ink); border: 1px solid var(--accent);
-    padding: 10px 18px; border-radius: 8px; font-size: 15px;
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--accent);
+    padding: 10px 18px; border-radius: 8px; font-size: 14px; z-index: 60;
     opacity: 0; transition: opacity .25s; pointer-events: none;
   }
   .toast.show { opacity: 1; }
-  .check { font-size: 14px; margin-left: 8px; }
-  .check.ok { color: var(--good); }
-  .check.bad { color: var(--warn); }
 
-  /* PIN gate */
-  #gate { position: fixed; inset: 0; background: rgba(8,12,10,.97); z-index: 50;
-          display: flex; align-items: center; justify-content: center; }
-  .gate-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-              padding: 22px; width: min(340px, 90vw); }
-  .gate-box h2 { margin: 0 0 6px; font-size: 22px; color: var(--accent); }
-  .gate-box input { font-size: 22px; text-align: center; letter-spacing: 6px; }
-  #auditList div { padding: 1px 0; }
+  /* ---------- PIN gate ---------- */
+  #gate {
+    position: fixed; inset: 0; background: rgba(6, 11, 8, .97); z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gate-box {
+    background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r);
+    padding: 24px; width: min(340px, 90vw);
+  }
+  .gate-box h2 { font-family: var(--serif); margin: 0 0 6px; font-size: 22px; color: var(--accent-hi); }
+  .gate-box p { color: var(--faint); font-size: 13.5px; margin: 0 0 10px; }
+  .gate-box input { font-family: var(--mono); font-size: 22px; text-align: center; letter-spacing: 6px; }
 
-  /* bartender on a phone: 44px targets, nothing to pinch-zoom */
-  @media (max-width: 700px) {
-    body { font-size: 17px; }
-    header { padding: 10px 14px; }
-    main { padding: 12px; gap: 14px; }
-    button, a.btn, select { min-height: 44px; }
-    input { min-height: 44px; font-size: 17px; }
-    .stat { min-width: 106px; padding: 6px 12px; }
-    .stat .num { font-size: 20px; }
-    td, th { padding: 4px 6px; }
+  /* ---------- phone ---------- */
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .side {
+      border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 14px 16px;
+    }
+    main { padding: 16px 14px 32px; }
+    .mhead h1 { font-size: 23px; }
+    .stat-strip { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+    button, a.btn, select, input { min-height: 44px; }
+    button.sm { min-height: 40px; }
+    td input { min-height: 44px; }
   }
 </style>
 </head>
@@ -126,7 +220,7 @@
 <div id="gate" class="hidden">
   <div class="gate-box">
     <h2 id="gateTitle">PIN</h2>
-    <p id="gateMsg" style="color: var(--muted); font-size: 14px; margin: 0 0 10px;"></p>
+    <p id="gateMsg"></p>
     <input id="gatePin" type="password" inputmode="numeric" placeholder="PIN"
            autocomplete="current-password">
     <div class="row" style="margin-top: 10px;">
@@ -135,70 +229,77 @@
     </div>
   </div>
 </div>
-<header>
-  <h1>TipSplit</h1>
-  <span class="tag">gorjetas semanais · por horas · vales descontados</span>
-  <a class="btn" id="annualBtn" href="#" style="margin-left:auto;">Anual (Excel)</a>
-</header>
 
-<div class="panel" style="max-width:1200px; margin:20px auto 0;">
-  <div class="stat-strip" id="dash" style="margin:0;"></div>
-  <div id="dashNote" style="font-size:14px; color:var(--muted); margin-top:4px;"></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <span class="word">TipSplit</span><em>gorjetas</em><span class="ver">v0.6</span>
+    </div>
+
+    <div class="grp">Semanas</div>
+    <button id="newWeekBtn" class="navitem">+ Nova semana</button>
+    <div id="weekList" class="sidenav"></div>
+
+    <div class="grp">Equipa</div>
+    <div id="teamList" class="sidenav"></div>
+
+    <div class="grp">Adiantamento</div>
+    <div class="row">
+      <select id="valeStaff" class="grow"></select>
+      <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width:78px">
+    </div>
+    <div class="row" style="margin-top: 6px;">
+      <input id="valeNote" class="grow" placeholder="motivo">
+      <button id="addValeBtn" class="sm">Add</button>
+    </div>
+
+    <div class="grp">Nova pessoa</div>
+    <div class="row">
+      <input id="staffName" class="grow" placeholder="Nome">
+      <input id="staffPosition" placeholder="função" style="width:96px">
+    </div>
+    <div class="row" style="margin-top: 6px;">
+      <button id="addStaffBtn" class="sm" style="width: 100%;">Adicionar à equipa</button>
+    </div>
+
+    <div class="grp">Definições</div>
+    <div class="row">
+      <input id="venueName" class="grow" placeholder="Nome da casa">
+      <button id="saveVenueBtn" class="sm">Guardar</button>
+    </div>
+    <div class="row" style="margin-top: 6px;">
+      <input id="newPin" type="password" inputmode="numeric" class="grow" placeholder="Novo PIN">
+      <input id="curPin" type="password" inputmode="numeric" placeholder="atual" style="width:78px">
+    </div>
+    <div class="row" style="margin-top: 6px;">
+      <button id="savePinBtn" class="sm">Alterar PIN</button>
+      <button id="logoutBtn" class="sm ghost">Sair</button>
+    </div>
+
+    <div class="grp">Alterações recentes</div>
+    <div id="auditList" class="audit">—</div>
+  </aside>
+
+  <main>
+    <div class="mhead">
+      <div>
+        <div class="crumb">KAIDO · TipSplit</div>
+        <h1>Gorjetas</h1>
+      </div>
+      <a class="btn" id="annualBtn" href="#" style="margin-left: auto;">Anual (Excel)</a>
+    </div>
+
+    <div class="stat-strip" id="dash"></div>
+    <div id="dashNote" class="hint"></div>
+
+    <div class="panel" id="detailPanel" style="margin-top: 16px;">
+      <div id="empty" class="empty">Escolhe uma semana à esquerda, ou cria uma nova.</div>
+      <div id="detail" class="hidden"></div>
+    </div>
+  </main>
 </div>
 
-<main>
-  <!-- LEFT: weeks + team -->
-  <div class="panel">
-    <button id="newWeekBtn" style="width:100%; margin-bottom: 12px;">+ New week</button>
-    <div id="weekList"></div>
-
-    <div style="margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
-      <div style="color: var(--muted); font-size: 14px;">Equipa</div>
-      <div id="teamList" style="margin-top: 10px; font-size: 15px;"></div>
-
-      <label for="valeStaff">Adiantamento (vale)</label>
-      <div class="row">
-        <select id="valeStaff" class="grow"></select>
-        <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width:92px">
-      </div>
-      <div class="row" style="margin-top: 6px;">
-        <div class="grow"><input id="valeNote" placeholder="motivo (opcional)"></div>
-        <button id="addValeBtn" class="small">Add</button>
-      </div>
-
-      <div class="row" style="margin-top: 12px;">
-        <div class="grow"><input id="staffName" placeholder="Novo nome"></div>
-        <input id="staffPosition" placeholder="função" style="width:110px">
-        <button id="addStaffBtn" class="small">+</button>
-      </div>
-
-      <div style="margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px;">
-        <div style="color: var(--muted); font-size: 14px;">Definições</div>
-        <div class="row" style="margin-top: 6px;">
-          <div class="grow"><input id="venueName" placeholder="Nome da casa"></div>
-          <button id="saveVenueBtn" class="small">Guardar</button>
-        </div>
-        <div class="row" style="margin-top: 6px;">
-          <div class="grow"><input id="newPin" type="password" inputmode="numeric" placeholder="Novo PIN"></div>
-          <input id="curPin" type="password" inputmode="numeric" placeholder="atual" style="width:96px">
-          <button id="savePinBtn" class="small">PIN</button>
-        </div>
-        <div style="margin-top: 10px; font-size: 13px; color: var(--muted);">Alterações recentes</div>
-        <div id="auditList" style="font-size: 13px; color: var(--muted); margin-top: 4px;">—</div>
-        <button id="logoutBtn" class="ghost small" style="margin-top: 8px;">Sair</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- RIGHT: week detail -->
-  <div class="panel" id="detailPanel">
-    <div id="empty">Pick a week on the left, or create one.</div>
-    <div id="detail" class="hidden"></div>
-  </div>
-</main>
-
 <div class="toast" id="toast"></div>
-
 <script>
 const $ = (s) => document.querySelector(s);
 let currentWeek = null;
@@ -246,10 +347,11 @@ async function submitGate() {
 
 async function boot() {
   const st = await api("/api/auth/status");            // public
+  if (!st.pin_set) return showGate("setup");           // first run: protect the till
   try {
     await api("/api/dashboard");                       // probe: gated?
   } catch (e) {
-    if (e.status === 401) return showGate(st.pin_set ? "login" : "setup");
+    if (e.status === 401) return showGate("login");
     throw e;
   }
   $("#gate").classList.add("hidden");
@@ -268,7 +370,7 @@ function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 2200);
 }
-const eur = (v) => "€" + (Math.round(v * 100) / 100).toFixed(2);
+const eur = (v) => (Math.round(v * 100) / 100).toFixed(2).replace(".", ",") + " €";
 function esc(x) {
   return String(x).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -280,7 +382,7 @@ function fmtDate(iso) {
 function nextMonday() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7;          // days since Monday
-  d.setDate(d.getDate() - day);
+  d.setDate(d.getDate() - day + 7);          // NEXT week — this week is usually taken
   return d.toISOString().slice(0, 10);
 }
 
@@ -327,11 +429,11 @@ function applySplit(w, p) {
   const check = $("#checkMsg"), statCheck = $("#statCheck");
   const diff = Math.round((totalGross - pool) * 100) / 100;
   if (Math.abs(diff) < 0.01) {
-    check.textContent = "✓ pool fully split"; check.className = "check ok";
+    check.textContent = "✓ pool todo dividido"; check.className = "check ok";
     statCheck.textContent = "✓ OK"; statCheck.style.color = "var(--good)";
   } else {
-    check.textContent = "⚠ " + (diff < 0 ? eur(-diff) + " left unallocated"
-                                          : eur(diff) + " over pool");
+    check.textContent = "⚠ " + (diff < 0 ? eur(-diff) + " por atribuir"
+                                          : eur(diff) + " acima do pool");
     check.className = "check bad";
     statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
   }
@@ -410,7 +512,7 @@ async function refreshSidebar() {
   const box = $("#teamList");
   box.innerHTML = t.staff.length ? t.staff.map(s => `
     <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; padding:3px 0;${s.archived ? "opacity:.45;" : ""}">
-      <span>${esc(s.name)}${s.position ? ` <span style="color:var(--muted);font-size:13px">${esc(s.position)}</span>` : ""}</span>
+      <span style="min-width:0">${esc(s.name)}${s.position ? ` <span style="color:var(--muted);font-size:13px">${esc(s.position)}</span>` : ""}</span>
       <span style="white-space:nowrap;">
         ${s.vales_week ? `<span style="color:var(--warn);font-size:14px;">${eur(s.vales_week)}</span>` : ""}
         <button class="ghost small" data-arch="${s.id}" data-on="${s.archived ? 0 : 1}"
@@ -441,6 +543,14 @@ function weekHours(e) {
 async function openWeek(id) {
   currentWeek = id;
   const w = await api("/api/weeks/" + id);
+  // a fresh week has no entry rows yet — open it with the roster, zeroed, so the
+  // weekly ritual is "type the hours", not "add eleven people first"
+  if (!w.entries.length && staffCache.length) {
+    w.entries = staffCache.filter(s => !s.archived).map(s => ({
+      staff_id: s.id, name: s.name, position: s.position, archived: s.archived,
+      mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0, hours: 0, vales: 0,
+    }));
+  }
   const d = $("#detail");
   d.classList.remove("hidden");
   $("#empty").classList.add("hidden");
@@ -449,20 +559,20 @@ async function openWeek(id) {
   d.innerHTML = `
     <div class="week-header">
       <div>
-        <h2>Week of ${fmtDate(w.start_date)}${locked ? ' <span class="badge">🔒 fechada</span>' : ""}</h2>
-        <div class="week-facts">${w.entries.length} staff · ${w.total_hours} total hours</div>
+        <h2>Semana de ${fmtDate(w.start_date)}${locked ? ' <span class="badge">🔒 fechada</span>' : ""}</h2>
+        <div class="week-facts">${w.entries.length} pessoas · ${w.total_hours} h no total</div>
       </div>
       <div class="row">
-        ${locked ? "" : '<button class="ghost" id="addRowBtn">+ Add staff</button>'}
+        ${locked ? "" : '<button class="ghost" id="addRowBtn">+ Adicionar pessoa</button>'}
       </div>
     </div>
 
     <div class="stat-strip">
-      <div class="stat"><div class="cap">Pool (tips total €)</div>
+      <div class="stat"><div class="cap">Pool (total €)</div>
         <input type="number" id="poolInput" min="0" step="0.01" value="${w.pool_eur}"${locked ? " disabled" : ""}></div>
-      <div class="stat"><div class="cap">Total hours</div><div class="num" id="statHours">${w.total_hours}</div></div>
-      <div class="stat"><div class="cap">Net total</div><div class="num" id="statSum">—</div></div>
-      <div class="stat"><div class="cap">Pool check</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
+      <div class="stat"><div class="cap">Total de horas</div><div class="num" id="statHours">${w.total_hours}</div></div>
+      <div class="stat"><div class="cap">Total líquido</div><div class="num" id="statSum">—</div></div>
+      <div class="stat"><div class="cap">Conferência</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
     </div>
 
     <div class="statement" id="statement">${esc(w.statement || "")}</div>
@@ -470,17 +580,17 @@ async function openWeek(id) {
     <div style="overflow-x: auto;">
     <table>
       <thead><tr>
-        <th>Staff</th>
+        <th>Pessoa</th>
         ${DAY_LABELS.map(([, lbl]) => `<th class="num">${lbl}</th>`).join("")}
-        <th class="num">Hours</th><th class="num">Vales €</th>
-        <th class="num">Net €</th>
+        <th class="num">Horas</th><th class="num">Vales €</th>
+        <th class="num">Líquido €</th>
       </tr></thead>
       <tbody id="gridBody"></tbody>
     </table>
     </div>
 
     <div class="row" style="margin-top: 16px;">
-      ${locked ? "" : '<button id="saveBtn">Save week</button>'}
+      ${locked ? "" : '<button id="saveBtn">Guardar semana</button>'}
       ${locked ? "" : '<button class="ghost" id="lockBtn">🔒 Fechar semana</button>'}
       ${locked ? '<button class="ghost" id="unlockBtn">🔓 Desbloquear (com motivo)</button>' : ""}
       <span class="check" id="checkMsg"></span>
@@ -492,8 +602,8 @@ async function openWeek(id) {
       <a class="btn" href="/api/export/week/${w.id}?fmt=csv">CSV</a>
     </div>
     <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
-      Hours per day (Mon–Sun) sum to each person's week total.
-      share = pool × hours ÷ total hours − vales. Net never goes below zero.
+      As horas de cada dia (seg–dom) somam o total da pessoa.
+      quinhão = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.
       ${locked ? "Semana fechada — para corrigir, é preciso desbloquear (com motivo)." : ""}
     </div>`;
 
@@ -537,7 +647,7 @@ function renderGrid(w) {
         <td class="num"><input type="number" data-i="${idx}" data-k="${k}"
           value="${e[k] || 0}" min="0" step="0.5" style="width:64px"${locked ? " disabled" : ""}></td>`).join("")}
       <td class="num" data-hours>${e.hours || 0}</td>
-      <td class="num vales-cell"${e.vales ? ' style="color:var(--warn)"' : ""}
+      <td class="num vales-cell" data-vales${e.vales ? ' style="color:var(--warn)"' : ""}
         title="adiantamentos geridos na Equipa">${e.vales ? eur(e.vales) : "—"}</td>
       <td class="num net-share" data-net>—</td>`;
     tr.querySelectorAll("input").forEach(inp => {

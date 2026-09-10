@@ -9,7 +9,7 @@ import pytest
 
 import db
 
-LATEST = 2          # bump when a migration lands
+LATEST = 4          # bump when a migration lands
 
 
 def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0, vale=10.0):
@@ -75,7 +75,7 @@ class TestLegacyUpgrade:
         tables = [r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
         conn.close()
-        assert "settings" in tables and "vales" in tables
+        assert {"settings", "vales", "audit_log"} <= set(tables)
 
     def test_old_week_defaults_to_open(self, legacy_db):
         d, _, week_id = legacy_db

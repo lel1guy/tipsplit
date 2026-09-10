@@ -515,6 +515,41 @@ def annual(year: int) -> dict:
             "staff": list(staff.values())}
 
 
+# ---------- Audit log ----------
+
+def audit(action: str, detail: str = "", actor: str = "") -> None:
+    conn = _conn()
+    conn.execute("INSERT INTO audit_log (actor, action, detail) VALUES (?,?,?)",
+                 (actor, action, detail))
+    conn.commit()
+    conn.close()
+
+
+def get_audit(limit: int = 50):
+    conn = _conn()
+    rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?",
+                        (max(1, min(limit, 200)),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def unlock_week(week_id: int, reason: str, actor: str = ""):
+    """Reopen a locked week. The reason is mandatory — that's the point."""
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("reason required")
+    conn = _conn()
+    cur = conn.execute(
+        "UPDATE weeks SET status='open', closed_at=NULL, closed_by='' WHERE id=?",
+        (week_id,))
+    conn.commit()
+    conn.close()
+    if cur.rowcount == 0:
+        return None
+    audit("week.unlock", f"week={week_id} motivo={reason}", actor)
+    return get_week(week_id)
+
+
 # ---------- Week lifecycle ----------
 
 def lock_week(week_id: int, closed_by: str = ""):

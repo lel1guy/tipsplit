@@ -13,10 +13,11 @@ Vales live in a dated ledger (db.vales), never in the week's entry rows.
 Run:  uvicorn main:app --reload   then open http://127.0.0.1:8001
 """
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
+import auth
 import db
 import exporters
 import splitting
@@ -106,6 +107,7 @@ def archive_staff(staff_id: int, archived: bool = True):
     out = db.archive_staff(staff_id, archived)
     if out is None:
         raise HTTPException(404, "Staff not found")
+    db.audit("staff.arquivar" if archived else "staff.reativar", f"staff={staff_id}")
     return out
 
 @app.delete("/api/staff/{staff_id}")
@@ -127,12 +129,15 @@ def create_vale(v: ValeIn):
     row = db.record_vale(v.staff_id, v.amount, v.note, v.week_id, v.date)
     if row is None:
         raise HTTPException(400, "Amount must be positive and staff must exist")
+    db.audit("vale.add", f"{row['name']} {row['amount']}€ semana={row['week_id']}")
     return row
 
 @app.delete("/api/vales/{vale_id}")
 def delete_vale(vale_id: int):
+    row = db.get_vale(vale_id)
     if not db.delete_vale(vale_id):
         raise HTTPException(404, "Vale not found")
+    db.audit("vale.apagar", f"{row['name']} {row['amount']}€")
     return {"ok": True}
 
 
@@ -188,9 +193,11 @@ def save_week(week_id: int, data: WeekSaveIn):
     if not wk:
         raise HTTPException(404, "Week not found")
     try:
-        return db.save_week(week_id, data.pool_eur, [e.model_dump() for e in data.entries])
+        out = db.save_week(week_id, data.pool_eur, [e.model_dump() for e in data.entries])
     except PermissionError:
         raise HTTPException(403, "Week is locked — unlock it first")
+    db.audit("week.guardar", f"semana={week_id} pool={data.pool_eur} linhas={len(data.entries)}")
+    return out
 
 @app.post("/api/weeks/{week_id}/preview")
 def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
@@ -208,10 +215,28 @@ def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
 
 @app.post("/api/weeks/{week_id}/lock")
 def lock_week(week_id: int, closed_by: str = ""):
-    """Close the week — money agreed. Unlocking (with a reason) is 004."""
+    """Close the week — money agreed. Reopening needs a reason (T-D)."""
     if not db.get_week(week_id):
         raise HTTPException(404, "Week not found")
-    return db.lock_week(week_id, closed_by)
+    out = db.lock_week(week_id, closed_by)
+    db.audit("week.fechar", f"semana={week_id}")
+    return out
+
+
+class UnlockIn(BaseModel):
+    reason: str = ""
+
+
+@app.post("/api/weeks/{week_id}/unlock")
+def unlock_week(week_id: int, u: UnlockIn):
+    """Reopen a settled week — the reason is required and gets logged."""
+    try:
+        out = db.unlock_week(week_id, u.reason)
+    except ValueError:
+        raise HTTPException(400, "Motivo obrigatório")
+    if out is None:
+        raise HTTPException(404, "Week not found")
+    return out
 
 
 # ---------- Payday: payslips, cash sheet, exports ----------
@@ -262,3 +287,109 @@ def export_annual(year: int, fmt: str = "xlsx"):
         return _download(exporters.annual_csv(report), "text/csv; charset=utf-8",
                          f"gorjetas-{year}.csv")
     return _download(exporters.annual_xlsx(report).getvalue(), XLSX, f"gorjetas-{year}.xlsx")
+
+
+# ---------- T-D: PIN gate, settings, audit ----------
+
+class PinIn(BaseModel):
+    pin: str
+
+class SettingsIn(BaseModel):
+    venue_name: str | None = None
+    lang: str | None = None
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "same-origin"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+        "frame-ancestors 'none'")
+    return resp
+
+
+@app.middleware("http")
+async def pin_gate(request: Request, call_next):
+    """Once a PIN exists everything is gated except the page, /static and the
+    auth routes — payslips and exports carry money, so /print is gated too."""
+    path = request.url.path
+    public = (path.startswith("/static") or path.startswith("/api/auth/")
+              or path in ("/", "/favicon.ico"))
+    if public or not auth.pin_is_set():
+        return await call_next(request)
+    if not auth.cookie_valid(request.cookies.get(auth.COOKIE)):
+        return JSONResponse({"detail": "PIN necessário"}, status_code=401)
+    return await call_next(request)
+
+
+@app.get("/api/auth/status")
+def auth_status():
+    return {"pin_set": auth.pin_is_set()}
+
+
+@app.post("/api/auth/setup")
+def auth_setup(p: PinIn):
+    if auth.pin_is_set():
+        raise HTTPException(400, "PIN já definido")
+    pin = p.pin.strip()
+    if len(pin) < 4:
+        raise HTTPException(400, "PIN demasiado curto (mínimo 4)")
+    auth.set_pin(pin)
+    db.audit("auth.setup", "PIN definido")
+    return JSONResponse({"ok": True}, headers={"set-cookie": auth.make_cookie()})
+
+
+@app.post("/api/auth/login")
+def auth_login(p: PinIn, request: Request):
+    ip = request.client.host if request.client else "?"
+    if auth.too_many_attempts(ip):
+        raise HTTPException(429, "Demasiadas tentativas — espera 5 minutos")
+    if not auth.check_pin(p.pin.strip()):
+        auth.note_failure(ip)
+        raise HTTPException(401, "PIN errado")
+    auth.clear_failures(ip)
+    return JSONResponse({"ok": True}, headers={"set-cookie": auth.make_cookie()})
+
+
+@app.post("/api/auth/logout")
+def auth_logout():
+    return JSONResponse({"ok": True}, headers={"set-cookie": auth.clear_cookie()})
+
+
+@app.post("/api/auth/pin")
+def auth_change_pin(p: PinIn, current: str = ""):
+    if not auth.check_pin(current):
+        raise HTTPException(403, "PIN atual errado")
+    pin = p.pin.strip()
+    if len(pin) < 4:
+        raise HTTPException(400, "PIN demasiado curto (mínimo 4)")
+    auth.set_pin(pin)
+    db.audit("auth.pin_alterado", "")
+    return {"ok": True}
+
+
+@app.get("/api/settings")
+def get_settings():
+    return {"venue_name": db.get_setting("venue_name"),
+            "lang": db.get_setting("lang", "pt")}
+
+
+@app.put("/api/settings")
+def put_settings(s: SettingsIn):
+    if s.venue_name is not None:
+        db.set_setting("venue_name", s.venue_name.strip())
+        db.audit("settings.venue", s.venue_name.strip())
+    if s.lang is not None:
+        lang = "pt" if s.lang.lower().startswith("pt") else "en"
+        db.set_setting("lang", lang)
+        db.audit("settings.lang", lang)
+    return get_settings()
+
+
+@app.get("/api/audit")
+def list_audit(limit: int = 25):
+    return db.get_audit(limit)

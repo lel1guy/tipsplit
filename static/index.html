@@ -99,9 +99,42 @@
   .check { font-size: 14px; margin-left: 8px; }
   .check.ok { color: var(--good); }
   .check.bad { color: var(--warn); }
+
+  /* PIN gate */
+  #gate { position: fixed; inset: 0; background: rgba(8,12,10,.97); z-index: 50;
+          display: flex; align-items: center; justify-content: center; }
+  .gate-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+              padding: 22px; width: min(340px, 90vw); }
+  .gate-box h2 { margin: 0 0 6px; font-size: 22px; color: var(--accent); }
+  .gate-box input { font-size: 22px; text-align: center; letter-spacing: 6px; }
+  #auditList div { padding: 1px 0; }
+
+  /* bartender on a phone: 44px targets, nothing to pinch-zoom */
+  @media (max-width: 700px) {
+    body { font-size: 17px; }
+    header { padding: 10px 14px; }
+    main { padding: 12px; gap: 14px; }
+    button, a.btn, select { min-height: 44px; }
+    input { min-height: 44px; font-size: 17px; }
+    .stat { min-width: 106px; padding: 6px 12px; }
+    .stat .num { font-size: 20px; }
+    td, th { padding: 4px 6px; }
+  }
 </style>
 </head>
 <body>
+<div id="gate" class="hidden">
+  <div class="gate-box">
+    <h2 id="gateTitle">PIN</h2>
+    <p id="gateMsg" style="color: var(--muted); font-size: 14px; margin: 0 0 10px;"></p>
+    <input id="gatePin" type="password" inputmode="numeric" placeholder="PIN"
+           autocomplete="current-password">
+    <div class="row" style="margin-top: 10px;">
+      <button id="gateBtn">Entrar</button>
+      <span class="check" id="gateCheck"></span>
+    </div>
+  </div>
+</div>
 <header>
   <h1>TipSplit</h1>
   <span class="tag">gorjetas semanais · por horas · vales descontados</span>
@@ -138,6 +171,22 @@
         <input id="staffPosition" placeholder="função" style="width:110px">
         <button id="addStaffBtn" class="small">+</button>
       </div>
+
+      <div style="margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px;">
+        <div style="color: var(--muted); font-size: 14px;">Definições</div>
+        <div class="row" style="margin-top: 6px;">
+          <div class="grow"><input id="venueName" placeholder="Nome da casa"></div>
+          <button id="saveVenueBtn" class="small">Guardar</button>
+        </div>
+        <div class="row" style="margin-top: 6px;">
+          <div class="grow"><input id="newPin" type="password" inputmode="numeric" placeholder="Novo PIN"></div>
+          <input id="curPin" type="password" inputmode="numeric" placeholder="atual" style="width:96px">
+          <button id="savePinBtn" class="small">PIN</button>
+        </div>
+        <div style="margin-top: 10px; font-size: 13px; color: var(--muted);">Alterações recentes</div>
+        <div id="auditList" style="font-size: 13px; color: var(--muted); margin-top: 4px;">—</div>
+        <button id="logoutBtn" class="ghost small" style="margin-top: 8px;">Sair</button>
+      </div>
     </div>
   </div>
 
@@ -159,8 +208,61 @@ async function api(url, method = "GET", body = null) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(url, opts);
-  if (!r.ok) { const t = await r.text(); throw new Error(t || r.status); }
+  if (!r.ok) {
+    const err = new Error((await r.text()) || String(r.status));
+    err.status = r.status;                 // callers branch on this (401 = gate)
+    throw err;
+  }
   return r.status === 204 ? null : r.json();
+}
+
+// ---------- PIN gate ----------
+let gateMode = "login";
+
+function showGate(mode, msg) {
+  gateMode = mode;
+  $("#gate").classList.remove("hidden");
+  $("#gateTitle").textContent = mode === "setup" ? "Define um PIN" : "PIN da casa";
+  $("#gateMsg").textContent = msg || (mode === "setup"
+    ? "4+ dígitos. É isto que impede alguém de ver as gorjetas de todos."
+    : "Introduz o PIN para ver os dados da casa.");
+  $("#gatePin").value = "";
+  setTimeout(() => $("#gatePin").focus(), 50);
+}
+
+async function submitGate() {
+  try {
+    await api(gateMode === "setup" ? "/api/auth/setup" : "/api/auth/login",
+              "POST", { pin: $("#gatePin").value.trim() });
+    $("#gateCheck").textContent = "";
+    $("#gate").classList.add("hidden");
+    boot();
+  } catch (e) {
+    $("#gateCheck").textContent = e.status === 429
+      ? "Demasiadas tentativas — espera 5 minutos." : "PIN errado.";
+    $("#gateCheck").className = "check bad";
+  }
+}
+
+async function boot() {
+  const st = await api("/api/auth/status");            // public
+  try {
+    await api("/api/dashboard");                       // probe: gated?
+  } catch (e) {
+    if (e.status === 401) return showGate(st.pin_set ? "login" : "setup");
+    throw e;
+  }
+  $("#gate").classList.add("hidden");
+  loadWeeks(false);
+}
+
+async function loadSettings() {
+  const s = await api("/api/settings");
+  $("#venueName").value = s.venue_name || "";
+  const rows = await api("/api/audit?limit=8");
+  $("#auditList").innerHTML = rows.length
+    ? rows.map(r => `<div>${esc(r.ts.slice(5, 16))} · ${esc(r.action)} ${esc(r.detail)}</div>`).join("")
+    : "—";
 }
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -323,6 +425,7 @@ async function refreshSidebar() {
     .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
     || '<option value="">—</option>';
   loadDash();
+  loadSettings();
 }
 
 // ---------- render: week detail ----------
@@ -379,6 +482,7 @@ async function openWeek(id) {
     <div class="row" style="margin-top: 16px;">
       ${locked ? "" : '<button id="saveBtn">Save week</button>'}
       ${locked ? "" : '<button class="ghost" id="lockBtn">🔒 Fechar semana</button>'}
+      ${locked ? '<button class="ghost" id="unlockBtn">🔓 Desbloquear (com motivo)</button>' : ""}
       <span class="check" id="checkMsg"></span>
     </div>
     <div class="row" style="margin-top: 10px;">
@@ -399,6 +503,15 @@ async function openWeek(id) {
     $("#addRowBtn").addEventListener("click", () => addRow(w));
     $("#saveBtn").addEventListener("click", () => saveWeek(w));
     $("#lockBtn").addEventListener("click", () => lockWeek(w));
+  } else {
+    $("#unlockBtn").addEventListener("click", async () => {
+      const reason = prompt("Motivo do desbloqueio (fica registado):");
+      if (!reason || !reason.trim()) return;
+      await api(`/api/weeks/${w.id}/unlock`, "POST", { reason: reason.trim() });
+      toast("Semana reaberta — o motivo ficou registado");
+      openWeek(w.id);
+      loadSettings();
+    });
   }
   loadWeeks(false);
 }
@@ -516,9 +629,36 @@ $("#addValeBtn").addEventListener("click", async () => {
   if (currentWeek) openWeek(currentWeek);        // the week's nets changed
 });
 
+$("#gateBtn").addEventListener("click", submitGate);
+$("#gatePin").addEventListener("keydown", (e) => { if (e.key === "Enter") submitGate(); });
+
+$("#saveVenueBtn").addEventListener("click", async () => {
+  await api("/api/settings", "PUT", { venue_name: $("#venueName").value.trim() });
+  toast("Nome da casa guardado");
+  loadSettings();
+});
+
+$("#savePinBtn").addEventListener("click", async () => {
+  const pin = $("#newPin").value.trim(), current = $("#curPin").value.trim();
+  if (pin.length < 4) { toast("PIN: mínimo 4 dígitos"); return; }
+  try {
+    await api(`/api/auth/pin?current=${encodeURIComponent(current)}`, "POST", { pin });
+    $("#newPin").value = ""; $("#curPin").value = "";
+    toast("PIN alterado");
+    loadSettings();
+  } catch (e) {
+    toast("PIN atual errado");
+  }
+});
+
+$("#logoutBtn").addEventListener("click", async () => {
+  await api("/api/auth/logout", "POST");
+  location.reload();
+});
+
 window.addEventListener("load", () => {
   $("#annualBtn").href = `/api/export/annual/${new Date().getFullYear()}?fmt=xlsx`;
-  loadWeeks(false);
+  boot();
 });
 </script>
 </body>

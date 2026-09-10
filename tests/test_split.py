@@ -123,16 +123,15 @@ def test_zero_hours_do_not_crash(fresh_db):
 
 
 def test_vales_deducted_and_never_negative(fresh_db):
+    """A €500 vale against a €400 gross → net 0, not −100. Colleague untouched.
+    Vales are ledger rows now (T-B), so they're recorded, not saved with hours."""
     week, staff_a, staff_b = _known_week(fresh_db)
-    # A gets a €500 vale on a €400 gross → net 0, not −100.
-    fresh_db.save_week(week["id"], 600.0, [
-        _entry(staff_a["id"], "TestPersonA", {"mon": 8, "tue": 8, "wed": 8, "thu": 8, "fri": 8}, vales=500.0),
-        _entry(staff_b["id"], "TestPersonB", {"mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4}, vales=0.0),
-    ])
+    fresh_db.record_vale(staff_a["id"], 500.0, week_id=week["id"])
     v = fresh_db.get_week(week["id"])
     a_row = [e for e in v["entries"] if e["name"] == "TestPersonA"][0]
     b_row = [e for e in v["entries"] if e["name"] == "TestPersonB"][0]
-    assert v["shares"][a_row["staff_id"]] == 0.0      # never negative
+    assert a_row["vales"] == 500.0                      # read back from the ledger
+    assert v["shares"][a_row["staff_id"]] == 0.0        # never negative
     assert v["shares"][b_row["staff_id"]] == pytest.approx(200.00, abs=0.01)  # untouched
 
 

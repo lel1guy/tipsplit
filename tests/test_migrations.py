@@ -9,9 +9,12 @@ import pytest
 
 import db
 
+LATEST = 2          # bump when a migration lands
 
-def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0):
-    """Build a pre-migration database: the old shape, user_version 0, real rows."""
+
+def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0, vale=10.0):
+    """Build a pre-migration database: the old shape, user_version 0, real rows
+    (including a vales column value that must survive as ledger rows)."""
     conn = sqlite3.connect(path)
     conn.executescript(db.SCHEMA)          # SCHEMA is deliberately the OLD shape
     cur = conn.execute("INSERT INTO weeks (start_date) VALUES ('2026-08-03')")
@@ -21,7 +24,7 @@ def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0):
         c = conn.execute("INSERT INTO staff (name) VALUES (?)", (name,))
         conn.execute(
             "INSERT INTO entries (week_id, staff_id, mon, tue, wed, thu, fri, vales) "
-            "VALUES (?,?,8,8,8,8,4,10)", (week_id, c.lastrowid))
+            "VALUES (?,?,8,8,8,8,4,?)", (week_id, c.lastrowid, vale))
     conn.commit()
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
     conn.close()
@@ -37,11 +40,18 @@ def legacy_db(tmp_path, monkeypatch):
     return db, path, week_id
 
 
+def _cols(path, table):
+    conn = sqlite3.connect(path)
+    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    conn.close()
+    return cols
+
+
 class TestLegacyUpgrade:
     def test_version_bumped(self, legacy_db):
         _, path, _ = legacy_db
         conn = sqlite3.connect(path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
         conn.close()
 
     def test_rows_preserved(self, legacy_db):
@@ -59,13 +69,13 @@ class TestLegacyUpgrade:
 
     def test_new_columns_and_table_exist(self, legacy_db):
         _, path, _ = legacy_db
+        assert {"status", "closed_at", "closed_by"} <= set(_cols(path, "weeks"))
+        assert {"position", "archived"} <= set(_cols(path, "staff"))
         conn = sqlite3.connect(path)
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(weeks)").fetchall()]
-        assert {"status", "closed_at", "closed_by"} <= set(cols)
         tables = [r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        assert "settings" in tables
         conn.close()
+        assert "settings" in tables and "vales" in tables
 
     def test_old_week_defaults_to_open(self, legacy_db):
         d, _, week_id = legacy_db
@@ -75,10 +85,29 @@ class TestLegacyUpgrade:
         d, path, week_id = legacy_db
         d.init_db()                       # second init must be a no-op
         conn = sqlite3.connect(path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
         assert conn.execute("SELECT COUNT(*) FROM staff").fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM vales").fetchone()[0] == 2
         conn.close()
         assert d.get_week(week_id) is not None
+
+
+class TestValesBackfill:
+    def test_legacy_vales_became_ledger_rows(self, legacy_db):
+        d, _, week_id = legacy_db
+        rows = d.get_vales(week_id=week_id)
+        assert len(rows) == 2                                   # one per staff
+        assert all(r["amount"] == 10.0 and r["note"] == "importado" for r in rows)
+        assert all(r["date"] == "2026-08-03" for r in rows)     # dated to the week
+
+    def test_week_totals_unchanged_after_backfill(self, legacy_db):
+        d, _, week_id = legacy_db
+        wk = d.get_week(week_id)
+        assert all(e["vales"] == 10.0 for e in wk["entries"])
+
+    def test_entries_vales_column_is_gone(self, legacy_db):
+        _, path, _ = legacy_db
+        assert "vales" not in _cols(path, "entries")
 
 
 class TestWeekLifecycle:

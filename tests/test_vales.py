@@ -1,0 +1,129 @@
+"""Vales ledger + team/dashboard (T-B): dated advances, archive-not-delete,
+and balances that can be checked by hand.
+
+Run:  pytest tests/ -q
+"""
+import pytest
+
+import db
+
+
+@pytest.fixture()
+def fresh(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "t.db")
+    db.init_db()
+    return db
+
+
+def _clean_week(d):
+    """Wipe the seeded week's staff so tests own the roster."""
+    conn = d._conn()
+    conn.execute("DELETE FROM vales")
+    conn.execute("DELETE FROM entries")
+    conn.execute("DELETE FROM staff")
+    conn.execute("DELETE FROM weeks")
+    conn.execute("DELETE FROM week_pools")
+    conn.commit()
+    conn.close()
+    return d.create_week("2026-10-05")
+
+
+def test_record_vale_links_to_the_open_week(fresh):
+    _clean_week(fresh)
+    week = fresh.create_week("2026-10-12")
+    ana = fresh.create_staff("Ana Test", "Bartender")
+    row = fresh.record_vale(ana["id"], 25.0, "adiantamento")
+    assert row["week_id"] == week["id"], row
+    assert row["amount"] == 25.0 and row["note"] == "adiantamento"
+    assert row["date"]                       # dated, always
+
+
+def test_standalone_vale_has_no_week(fresh):
+    _clean_week(fresh)
+    fresh.create_week("2026-10-19")
+    ana = fresh.create_staff("Ana Test")
+    row = fresh.record_vale(ana["id"], 10.0, week_id=-1)
+    assert row["week_id"] is None
+    # and it must NOT show up in any week's ledger total
+    assert fresh.get_week(fresh.get_weeks()[0]["id"])["entries"] == []
+
+
+def test_bad_vales_rejected(fresh):
+    _clean_week(fresh)
+    ana = fresh.create_staff("Ana Test")
+    assert fresh.record_vale(ana["id"], 0.0) is None
+    assert fresh.record_vale(ana["id"], -5.0) is None
+    assert fresh.record_vale(99999, 10.0) is None          # unknown staff
+
+
+def test_vales_sum_into_the_week_and_reduce_the_net(fresh):
+    week = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    b = fresh.create_staff("Bruno Test")
+    fresh.save_week(week["id"], 600.0, [
+        {"staff_id": a["id"], "mon": 8, "tue": 8, "wed": 8, "thu": 8, "fri": 8},
+        {"staff_id": b["id"], "mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4},
+    ])
+    fresh.record_vale(a["id"], 20.0, week_id=week["id"])
+    fresh.record_vale(a["id"], 5.5, week_id=week["id"])
+    w = fresh.get_week(week["id"])
+    row_a = [e for e in w["entries"] if e["name"] == "Ana Test"][0]
+    assert row_a["vales"] == 25.5                      # 20 + 5.50
+    assert row_a["hours"] == 40.0
+    assert w["gross_shares"][a["id"]] == pytest.approx(400.0, abs=0.01)
+    assert w["shares"][a["id"]] == pytest.approx(374.5, abs=0.01)   # 400 − 25.50
+
+
+def test_vale_above_gross_is_surfaced_not_paid_out(fresh):
+    """Soft rule: net floors at 0, the excess is debt to the pot."""
+    week = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    b = fresh.create_staff("Bruno Test")
+    fresh.save_week(week["id"], 600.0, [
+        {"staff_id": a["id"], "mon": 8, "tue": 8, "wed": 8, "thu": 8, "fri": 8},
+        {"staff_id": b["id"], "mon": 4, "tue": 4, "wed": 4, "thu": 4, "fri": 4},
+    ])
+    fresh.record_vale(a["id"], 500.0, week_id=week["id"])          # gross 400
+    w = fresh.get_week(week["id"])
+    assert w["shares"][a["id"]] == 0.0
+    assert w["shares"][b["id"]] == pytest.approx(200.0, abs=0.01)
+    from splitting import vale_debt
+    assert vale_debt(w["gross_shares"][a["id"]], 500.0) == 100.0
+    assert db.dashboard()["vale_warnings"], "a vale over gross must be flagged"
+
+
+def test_archive_keeps_history(fresh):
+    week = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test", "Bartender")
+    fresh.save_week(week["id"], 300.0, [{"staff_id": a["id"], "mon": 8, "tue": 8}])
+    assert fresh.archive_staff(a["id"])["archived"] is True
+    assert fresh.delete_staff(a["id"]) is False          # history → archive only
+    assert [s["id"] for s in fresh.get_staff(include_archived=False)] == []
+    w = fresh.get_week(week["id"])
+    assert [e["name"] for e in w["entries"]] == ["Ana Test"]     # old week intact
+    assert fresh.archive_staff(a["id"], archived=False)["archived"] is False
+
+
+def test_team_balances_and_dashboard(fresh):
+    week = _clean_week(fresh)
+    a = fresh.create_staff("Ana Test", "Bartender")
+    fresh.save_week(week["id"], 400.0, [{"staff_id": a["id"], "mon": 8, "tue": 8}])
+    fresh.record_vale(a["id"], 30.0, week_id=week["id"])
+    fresh.record_vale(a["id"], 12.0, week_id=-1)         # standalone, old advance
+    team = fresh.get_team()
+    row = [s for s in team["staff"] if s["id"] == a["id"]][0]
+    assert row["vales_week"] == 30.0 and row["vales_total"] == 42.0
+    assert row["position"] == "Bartender"
+    d = fresh.dashboard()
+    assert d["week"]["pool_eur"] == 400.0
+    assert d["week"]["vales_total"] == 30.0              # only the linked one
+    assert d["staff_active"] == 1
+
+
+def test_vale_can_be_deleted(fresh):
+    _clean_week(fresh)
+    a = fresh.create_staff("Ana Test")
+    row = fresh.record_vale(a["id"], 15.0)
+    assert fresh.delete_vale(row["id"]) is True
+    assert fresh.get_vales(staff_id=a["id"]) == []
+    assert fresh.delete_vale(row["id"]) is False

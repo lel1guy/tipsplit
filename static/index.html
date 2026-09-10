@@ -101,18 +101,36 @@
   <span class="tag">weekly tips · by points · vales deducted</span>
 </header>
 
+<div class="panel" style="max-width:1200px; margin:20px auto 0;">
+  <div class="stat-strip" id="dash" style="margin:0;"></div>
+  <div id="dashNote" style="font-size:14px; color:var(--muted); margin-top:4px;"></div>
+</div>
+
 <main>
-  <!-- LEFT: weeks -->
+  <!-- LEFT: weeks + team -->
   <div class="panel">
     <button id="newWeekBtn" style="width:100%; margin-bottom: 12px;">+ New week</button>
     <div id="weekList"></div>
+
     <div style="margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
-      <div class="edit-note" style="color: var(--muted); font-size: 14px;">Staff</div>
-      <div class="row" style="margin-top: 6px;">
-        <div class="grow"><input id="staffName" placeholder="New staff name"></div>
-        <button id="addStaffBtn" class="small">Add</button>
+      <div style="color: var(--muted); font-size: 14px;">Equipa</div>
+      <div id="teamList" style="margin-top: 10px; font-size: 15px;"></div>
+
+      <label for="valeStaff">Adiantamento (vale)</label>
+      <div class="row">
+        <select id="valeStaff" class="grow"></select>
+        <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width:92px">
       </div>
-      <div id="staffList" style="margin-top: 10px; font-size: 15px;"></div>
+      <div class="row" style="margin-top: 6px;">
+        <div class="grow"><input id="valeNote" placeholder="motivo (opcional)"></div>
+        <button id="addValeBtn" class="small">Add</button>
+      </div>
+
+      <div class="row" style="margin-top: 12px;">
+        <div class="grow"><input id="staffName" placeholder="Novo nome"></div>
+        <input id="staffPosition" placeholder="função" style="width:110px">
+        <button id="addStaffBtn" class="small">+</button>
+      </div>
     </div>
   </div>
 
@@ -225,8 +243,7 @@ function scheduleSplit(w) {
 // ---------- render: weeks ----------
 async function loadWeeks(keepOpen) {
   const weeks = await api("/api/weeks");
-  staffCache = await api("/api/staff");
-  renderStaffList();
+  await refreshSidebar();
   const box = $("#weekList");
   box.innerHTML = "";
   if (!weeks.length) { box.innerHTML = '<div class="edit-note">No weeks yet.</div>'; return; }
@@ -251,11 +268,54 @@ async function loadWeeks(keepOpen) {
   if (keepOpen && currentWeek) openWeek(currentWeek);
 }
 
-function renderStaffList() {
-  const box = $("#staffList");
-  box.innerHTML = staffCache.length
-    ? staffCache.map(s => `<span style="margin-right:10px;">${esc(s.name)}</span>`).join("")
-    : '<span style="color: var(--muted)">none yet</span>';
+// ---------- render: dashboard + team ----------
+function stat(cap, val, small) {
+  return `<div class="stat"><div class="cap">${esc(cap)}</div>` +
+         `<div class="num"${small ? ' style="font-size:16px"' : ""}>${esc(val)}</div></div>`;
+}
+
+async function loadDash() {
+  const d = await api("/api/dashboard");
+  const w = d.week;
+  const cells = [];
+  if (w) {
+    cells.push(stat("Semana atual", fmtDate(w.start_date), true));
+    cells.push(stat("Pool", eur(w.pool_eur)));
+    cells.push(stat("Horas", String(w.total_hours)));
+    cells.push(stat("A pagar", eur(w.net_total)));
+    cells.push(stat("Adiantamentos", eur(w.vales_total)));
+  } else {
+    cells.push(stat("Semana atual", "—", true));
+  }
+  if (d.last_closed) cells.push(stat("Última fechada", eur(d.last_closed.net_total)));
+  $("#dash").innerHTML = cells.join("");
+  const n = d.vale_warnings.length;
+  $("#dashNote").textContent = n
+    ? `⚠ ${n} adiantamento(s) acima do ganho da semana — dívida ao pote.`
+    : `${d.staff_active} pessoa(s) ativas${w ? "" : " · cria a primeira semana"}`;
+}
+
+async function refreshSidebar() {
+  const t = await api("/api/team");
+  staffCache = t.staff;
+  const box = $("#teamList");
+  box.innerHTML = t.staff.length ? t.staff.map(s => `
+    <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; padding:3px 0;${s.archived ? "opacity:.45;" : ""}">
+      <span>${esc(s.name)}${s.position ? ` <span style="color:var(--muted);font-size:13px">${esc(s.position)}</span>` : ""}</span>
+      <span style="white-space:nowrap;">
+        ${s.vales_week ? `<span style="color:var(--warn);font-size:14px;">${eur(s.vales_week)}</span>` : ""}
+        <button class="ghost small" data-arch="${s.id}" data-on="${s.archived ? 0 : 1}"
+          title="${s.archived ? "reativar" : "arquivar"}">${s.archived ? "↺" : "⊘"}</button>
+      </span>
+    </div>`).join("") : '<span style="color:var(--muted)">ninguém ainda</span>';
+  box.querySelectorAll("[data-arch]").forEach(b => b.addEventListener("click", async () => {
+    await api(`/api/staff/${b.dataset.arch}/archive?archived=${b.dataset.on}`, "POST");
+    refreshSidebar();
+  }));
+  $("#valeStaff").innerHTML = t.staff.filter(s => !s.archived)
+    .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
+    || '<option value="">—</option>';
+  loadDash();
 }
 
 // ---------- render: week detail ----------
@@ -351,8 +411,8 @@ function renderGrid(w) {
         <td class="num"><input type="number" data-i="${idx}" data-k="${k}"
           value="${e[k] || 0}" min="0" step="0.5" style="width:64px"${locked ? " disabled" : ""}></td>`).join("")}
       <td class="num" data-hours>${e.hours || 0}</td>
-      <td class="num"><input type="number" data-i="${idx}" data-k="vales" value="${e.vales}"
-        min="0" step="0.01" style="width:86px"${locked ? " disabled" : ""}></td>
+      <td class="num vales-cell"${e.vales ? ' style="color:var(--warn)"' : ""}
+        title="adiantamentos geridos na Equipa">${e.vales ? eur(e.vales) : "—"}</td>
       <td class="num net-share" data-net>—</td>`;
     tr.querySelectorAll("input").forEach(inp => {
       inp.addEventListener("input", () => {
@@ -396,7 +456,6 @@ async function saveWeek(w) {
         staff_id: e.staff_id,
         mon: e.mon, tue: e.tue, wed: e.wed, thu: e.thu,
         fri: e.fri, sat: e.sat, sun: e.sun,
-        vales: e.vales,
       })),
   };
   try {
@@ -423,13 +482,25 @@ $("#newWeekBtn").addEventListener("click", async () => {
 $("#addStaffBtn").addEventListener("click", async () => {
   const name = $("#staffName").value.trim();
   if (!name) return;
-  const s = await api("/api/staff", "POST", { name });
-  if (!s) { toast("Name already exists"); return; }
-  $("#staffName").value = "";
-  toast("Added " + s.name);
-  staffCache = await api("/api/staff");
-  renderStaffList();
-  if (currentWeek) { const w = await api("/api/weeks/" + currentWeek); openWeek(currentWeek); }
+  const s = await api("/api/staff", "POST",
+                      { name, position: $("#staffPosition").value.trim() });
+  if (!s) { toast("Nome já existe"); return; }
+  $("#staffName").value = ""; $("#staffPosition").value = "";
+  toast("Adicionado " + s.name);
+  await refreshSidebar();
+  if (currentWeek) openWeek(currentWeek);
+});
+
+$("#addValeBtn").addEventListener("click", async () => {
+  const staff_id = parseInt($("#valeStaff").value);
+  const amount = parseFloat($("#valeAmount").value);
+  if (!staff_id || !(amount > 0)) { toast("Escolhe pessoa e valor"); return; }
+  const row = await api("/api/vales", "POST",
+                        { staff_id, amount, note: $("#valeNote").value.trim() });
+  $("#valeAmount").value = ""; $("#valeNote").value = "";
+  toast(`Vale ${eur(row.amount)} → ${row.name}`);
+  await refreshSidebar();
+  if (currentWeek) openWeek(currentWeek);        // the week's nets changed
 });
 
 window.addEventListener("load", () => { loadWeeks(false); });

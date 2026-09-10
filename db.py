@@ -14,6 +14,8 @@ week total drives the split:
 
     gross_share = pool × (week_hours / Σ week_hours)
     net_share   = gross_share − vales   (never below zero)
+
+Vales are dated ledger rows (migration 002) — never a stored week total.
 """
 import random
 import sqlite3
@@ -66,6 +68,7 @@ DEMO_FIRST = ["Ana", "Bruno", "Carla", "David", "Eva", "Filipe", "Gonçalo",
               "Helena", "Ivo", "Joana", "Kátia", "Luís", "Marta", "Nuno"]
 DEMO_LAST = ["", "Sousa", "Pereira", "Martins", "Rocha", "Teixeira", "Lopes",
              "Ferreira", "Almeida", "Ribeiro", "Carvalho", "Gomes"]
+DEMO_POSITIONS = ["Bartender", "Barback", "Empregado de mesa", "Cozinha", ""]
 
 
 def _demo_staff():
@@ -104,6 +107,11 @@ def _current_monday():
     return monday.isoformat()
 
 
+def _today():
+    import datetime
+    return datetime.date.today().isoformat()
+
+
 # ---------- migrations ----------
 
 def _version(conn) -> int:
@@ -125,70 +133,89 @@ def migrate(conn):
 def init_db():
     conn = _conn()
     # Base schema belongs only on a v0 database: it is the OLD shape, so
-    # migration 001 exercises on every install, fresh or upgraded. Re-running
-    # it on a migrated DB would re-add columns that already exist.
+    # migration 001 (and 002) exercise on every install, fresh or upgraded.
+    # Re-running it on a migrated DB would re-add columns that already exist.
     if _version(conn) == 0:
         conn.executescript(SCHEMA)
     migrate(conn)
     # Seed one random demo week if the DB is empty.
     if conn.execute("SELECT COUNT(*) FROM weeks").fetchone()[0] == 0:
-        cur = conn.execute("INSERT INTO weeks (start_date) VALUES (?)",
-                           (_current_monday(),))
-        week_id = cur.lastrowid
-        pool = round(random.uniform(400, 900), 0)
-        conn.execute("INSERT INTO week_pools (week_id, pool_eur) VALUES (?,?)",
-                     (week_id, pool))
-        # Generate all staff + hours first so we can compute gross shares
-        # and keep vales BELOW gross (a vale above gross = staff owes the pot,
-        # which only confuses demo data).
-        seeded = []
-        for name in _demo_staff():
-            conn.execute("INSERT INTO staff (name) VALUES (?)", (name,))
-            srow = conn.execute("SELECT id FROM staff WHERE name=?", (name,)).fetchone()
-            hours = _demo_hours()
-            seeded.append((srow["id"], hours))
-        total_hours = sum(sum(h.values()) for _, h in seeded)
-        for staff_id, hours in seeded:
-            week_hours = sum(hours.values())
-            gross = pool * (week_hours / total_hours) if total_hours else 0
-            vale = 0.0
-            if random.random() < 0.35:          # ~1 in 3 took an advance
-                max_vale = max(5.0, gross * 0.5)  # never above half their gross
-                vale = round(random.uniform(5.0, max_vale), 2)
-            conn.execute(
-                f"""INSERT INTO entries
-                    (week_id, staff_id, {", ".join(DAYS)}, vales)
-                    VALUES (?,?,{", ".join(["?"] * len(DAYS))},?)""",
-                (week_id, staff_id, *[hours[d] for d in DAYS], vale),
-            )
-        conn.commit()
+        _seed_demo(conn)
     conn.close()
+
+
+def _seed_demo(conn):
+    """One fictional week: staff, hours, pool, and a couple of vales.
+    Writes through the NEW schema (vales are ledger rows, not a column)."""
+    start = _current_monday()
+    cur = conn.execute("INSERT INTO weeks (start_date) VALUES (?)", (start,))
+    week_id = cur.lastrowid
+    pool = round(random.uniform(400, 900), 0)
+    conn.execute("INSERT INTO week_pools (week_id, pool_eur) VALUES (?,?)",
+                 (week_id, pool))
+    seeded = []
+    for name in _demo_staff():
+        conn.execute("INSERT INTO staff (name, position) VALUES (?,?)",
+                     (name, random.choice(DEMO_POSITIONS)))
+        srow = conn.execute("SELECT id FROM staff WHERE name=?", (name,)).fetchone()
+        seeded.append((srow["id"], _demo_hours()))
+    total_hours = sum(sum(h.values()) for _, h in seeded)
+    for staff_id, hours in seeded:
+        week_hours = sum(hours.values())
+        gross = pool * (week_hours / total_hours) if total_hours else 0
+        conn.execute(
+            f"""INSERT INTO entries (week_id, staff_id, {", ".join(DAYS)})
+                VALUES (?,?,{", ".join(["?"] * len(DAYS))})""",
+            (week_id, staff_id, *[hours[d] for d in DAYS]),
+        )
+        if random.random() < 0.35:              # ~1 in 3 took an advance
+            max_vale = max(5.0, gross * 0.5)    # demo keeps vales below gross
+            conn.execute(
+                "INSERT INTO vales (staff_id, date, week_id, amount, note) VALUES (?,?,?,?,?)",
+                (staff_id, start, week_id, round(random.uniform(5.0, max_vale), 2), "seed"),
+            )
+    conn.commit()
 
 
 # ---------- Staff ----------
 
-def get_staff():
+def get_staff(include_archived: bool = True):
     conn = _conn()
-    rows = conn.execute("SELECT * FROM staff ORDER BY name").fetchall()
+    sql = "SELECT * FROM staff"
+    if not include_archived:
+        sql += " WHERE archived = 0"
+    rows = conn.execute(sql + " ORDER BY archived, name").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def create_staff(name: str):
+def create_staff(name: str, position: str = ""):
     conn = _conn()
     try:
-        cur = conn.execute("INSERT INTO staff (name) VALUES (?)", (name,))
+        cur = conn.execute("INSERT INTO staff (name, position) VALUES (?,?)",
+                           (name, position))
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
         return None
     new_id = cur.lastrowid
     conn.close()
-    return {"id": new_id, "name": name}
+    return {"id": new_id, "name": name, "position": position}
+
+
+def archive_staff(staff_id: int, archived: bool = True):
+    """Soft flag, not delete — churn happens and history has to survive."""
+    conn = _conn()
+    cur = conn.execute("UPDATE staff SET archived=? WHERE id=?",
+                       (1 if archived else 0, staff_id))
+    conn.commit()
+    conn.close()
+    return None if cur.rowcount == 0 else {"id": staff_id, "archived": bool(archived)}
 
 
 def delete_staff(staff_id: int) -> bool:
-    """Only allow delete if the person has no history (would corrupt old splits)."""
+    """Hard delete only for someone with no history at all (typo cleanup).
+    Everyone else gets archived — old splits must keep their names."""
     conn = _conn()
     n = conn.execute("SELECT COUNT(*) FROM entries WHERE staff_id=?", (staff_id,)).fetchone()[0]
     if n > 0:
@@ -234,15 +261,17 @@ def get_week(week_id: int):
         return None
     wk = _week_summary(conn, row)
     estaff = conn.execute(
-        f"""SELECT e.id, e.staff_id, s.name, {", ".join(DAYS)}, e.vales
+        f"""SELECT e.id, e.staff_id, s.name, s.position, s.archived, {", ".join(DAYS)}
             FROM entries e JOIN staff s ON s.id = e.staff_id
             WHERE e.week_id=? ORDER BY s.name""",
         (week_id,),
     ).fetchall()
+    vales = _week_vales(conn, week_id)
     entries = []
     for r in estaff:
         e = dict(r)
         e["hours"] = round(_hours_of(r), 1)
+        e["vales"] = vales.get(e["staff_id"], 0.0)   # derived from the ledger
         entries.append(e)
     wk["entries"] = entries
     wk["total_hours"] = round(sum(e["hours"] for e in entries), 1)
@@ -285,8 +314,8 @@ def delete_week(week_id: int):
 
 
 def save_week(week_id: int, pool_eur: float, entries: list[dict]) -> dict:
-    """Replace the week's pool + entries wholesale. Each entry carries
-    per-day hours and vales. A locked week is money agreed — refuse."""
+    """Replace the week's pool + hours wholesale. Vales are NOT here — they
+    live in the ledger and are read back. A locked week is money agreed — refuse."""
     conn = _conn()
     row = conn.execute("SELECT status FROM weeks WHERE id=?", (week_id,)).fetchone()
     if row and row["status"] == "locked":
@@ -296,15 +325,148 @@ def save_week(week_id: int, pool_eur: float, entries: list[dict]) -> dict:
     conn.execute("UPDATE week_pools SET pool_eur=? WHERE week_id=?", (pool_eur, week_id))
     for e in entries:
         conn.execute(
-            f"""INSERT INTO entries (week_id, staff_id, {", ".join(DAYS)}, vales)
-                VALUES (?,?,{", ".join(["?"] * len(DAYS))},?)""",
-            (week_id, e["staff_id"],
-             *[float(e.get(d, 0) or 0) for d in DAYS],
-             float(e.get("vales", 0) or 0)),
+            f"""INSERT INTO entries (week_id, staff_id, {", ".join(DAYS)})
+                VALUES (?,?,{", ".join(["?"] * len(DAYS))})""",
+            (week_id, e["staff_id"], *[float(e.get(d, 0) or 0) for d in DAYS]),
         )
     conn.commit()
     conn.close()
     return get_week(week_id)
+
+
+# ---------- Vales ledger ----------
+
+def _week_vales(conn, week_id: int) -> dict:
+    """Σ vales per staff for one week (0 for anyone with none)."""
+    rows = conn.execute(
+        "SELECT staff_id, ROUND(SUM(amount),2) AS total FROM vales "
+        "WHERE week_id=? GROUP BY staff_id", (week_id,)).fetchall()
+    return {r["staff_id"]: float(r["total"] or 0) for r in rows}
+
+
+def open_week_id():
+    """Latest week that is still open — where a new advance belongs."""
+    conn = _conn()
+    row = conn.execute(
+        "SELECT id FROM weeks WHERE status='open' ORDER BY start_date DESC LIMIT 1").fetchone()
+    conn.close()
+    return row["id"] if row else None
+
+
+def record_vale(staff_id: int, amount: float, note: str = "",
+                week_id: int | None = None, date: str | None = None):
+    """One dated advance. week_id None = link to the open week if there is one;
+    pass -1 to keep it standalone. Returns the row, or None for a bad amount."""
+    amount = round(float(amount), 2)
+    if amount <= 0:
+        return None
+    if week_id is None:
+        week_id = open_week_id()
+    elif week_id == -1:
+        week_id = None
+    conn = _conn()
+    if not conn.execute("SELECT 1 FROM staff WHERE id=?", (staff_id,)).fetchone():
+        conn.close()
+        return None
+    cur = conn.execute(
+        "INSERT INTO vales (staff_id, date, week_id, amount, note) VALUES (?,?,?,?,?)",
+        (staff_id, date or _today(), week_id, amount, note))
+    conn.commit()
+    vid = cur.lastrowid
+    conn.close()
+    return get_vale(vid)
+
+
+def get_vale(vale_id: int):
+    conn = _conn()
+    row = conn.execute(
+        "SELECT v.*, s.name FROM vales v JOIN staff s ON s.id = v.staff_id WHERE v.id=?",
+        (vale_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_vales(staff_id: int | None = None, week_id: int | None = None):
+    conn = _conn()
+    sql = ("SELECT v.*, s.name FROM vales v JOIN staff s ON s.id = v.staff_id")
+    where, args = [], []
+    if staff_id is not None:
+        where.append("v.staff_id=?"); args.append(staff_id)
+    if week_id is not None:
+        where.append("v.week_id=?"); args.append(week_id)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    rows = conn.execute(sql + " ORDER BY v.date DESC, v.id DESC", args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_vale(vale_id: int) -> bool:
+    conn = _conn()
+    cur = conn.execute("DELETE FROM vales WHERE id=?", (vale_id,))
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+# ---------- Team + dashboard ----------
+
+def get_team():
+    """Roster with vale balances: this week (open week) + lifetime."""
+    conn = _conn()
+    wk = conn.execute(
+        "SELECT id FROM weeks WHERE status='open' ORDER BY start_date DESC LIMIT 1").fetchone()
+    week_id = wk["id"] if wk else None
+    this_week = _week_vales(conn, week_id) if week_id else {}
+    totals = {r["staff_id"]: float(r["total"] or 0) for r in conn.execute(
+        "SELECT staff_id, ROUND(SUM(amount),2) AS total FROM vales GROUP BY staff_id")}
+    rows = conn.execute("SELECT * FROM staff ORDER BY archived, name").fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        s = dict(r)
+        s["vales_week"] = this_week.get(s["id"], 0.0)
+        s["vales_total"] = totals.get(s["id"], 0.0)
+        out.append(s)
+    return {"week_id": week_id, "staff": out}
+
+
+def dashboard():
+    """Doors-of-the-venue numbers. Deliberately no month-per-staff here —
+    that is a trend, and trends wait until there's history worth charting."""
+    conn = _conn()
+    row = conn.execute(
+        "SELECT id FROM weeks WHERE status='open' ORDER BY start_date DESC LIMIT 1").fetchone()
+    open_week = get_week(row["id"]) if row else None
+    last_closed_row = conn.execute(
+        "SELECT id FROM weeks WHERE status='locked' ORDER BY start_date DESC LIMIT 1").fetchone()
+    last_closed = get_week(last_closed_row["id"]) if last_closed_row else None
+    conn.close()
+
+    warnings = []
+    if open_week:
+        for e in open_week["entries"]:
+            gross = open_week["gross_shares"].get(e["staff_id"], 0.0)
+            if e["vales"] > gross > 0:
+                warnings.append({"staff_id": e["staff_id"], "name": e["name"],
+                                 "vales": e["vales"], "gross": gross})
+    return {
+        "week": None if not open_week else {
+            "id": open_week["id"], "start_date": open_week["start_date"],
+            "pool_eur": open_week["pool_eur"], "status": open_week["status"],
+            "total_hours": open_week["total_hours"],
+            "net_total": round(sum(open_week["shares"].values()), 2),
+            "vales_total": round(sum(e["vales"] for e in open_week["entries"]), 2),
+        },
+        "open_week_id": open_week["id"] if open_week else None,
+        "vale_warnings": warnings,
+        "last_closed": None if not last_closed else {
+            "start_date": last_closed["start_date"],
+            "net_total": round(sum(last_closed["shares"].values()), 2),
+            "staff": len(last_closed["entries"]),
+        },
+        "staff_active": len(get_staff(include_archived=False)),
+    }
 
 
 # ---------- Week lifecycle ----------

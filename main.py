@@ -8,6 +8,7 @@ deducted from each share.
 
 Money math lives in splitting.py and runs SERVER-side only — the browser
 renders what the server returns (preview endpoint), so there is one formula.
+Vales live in a dated ledger (db.vales), never in the week's entry rows.
 
 Run:  uvicorn main:app --reload   then open http://127.0.0.1:8001
 """
@@ -29,11 +30,13 @@ db.init_db()
 
 class StaffIn(BaseModel):
     name: str
+    position: str = ""
 
 class WeekIn(BaseModel):
     start_date: str          # ISO "2024-07-29" (the Monday)
 
 class EntryIn(BaseModel):
+    """Hours only — vales are ledger rows, not part of a save."""
     staff_id: int
     mon: float = 0.0
     tue: float = 0.0
@@ -42,11 +45,17 @@ class EntryIn(BaseModel):
     fri: float = 0.0
     sat: float = 0.0
     sun: float = 0.0
-    vales: float = 0.0
 
 class WeekSaveIn(BaseModel):
     pool_eur: float = 0.0
     entries: list[EntryIn] = []
+
+class ValeIn(BaseModel):
+    staff_id: int
+    amount: float
+    note: str = ""
+    week_id: int | None = None      # None = open week, -1 = standalone
+    date: str | None = None
 
 
 def _lang(lang: str) -> str:
@@ -81,22 +90,60 @@ def index():
 # ---------- Staff ----------
 
 @app.get("/api/staff")
-def list_staff():
-    return db.get_staff()
+def list_staff(include_archived: bool = True):
+    return db.get_staff(include_archived=include_archived)
 
 @app.post("/api/staff")
 def create_staff(s: StaffIn):
     name = s.name.strip()
     if not name:
         raise HTTPException(400, "Name needed")
-    return db.create_staff(name)
+    return db.create_staff(name, s.position.strip())
+
+@app.post("/api/staff/{staff_id}/archive")
+def archive_staff(staff_id: int, archived: bool = True):
+    out = db.archive_staff(staff_id, archived)
+    if out is None:
+        raise HTTPException(404, "Staff not found")
+    return out
 
 @app.delete("/api/staff/{staff_id}")
 def delete_staff(staff_id: int):
     ok = db.delete_staff(staff_id)
     if not ok:
-        raise HTTPException(400, "Staff has history — deactivate instead")
+        raise HTTPException(400, "Staff has history — archive instead")
     return {"ok": True}
+
+
+# ---------- Vales ledger ----------
+
+@app.get("/api/vales")
+def list_vales(staff_id: int | None = None, week_id: int | None = None):
+    return db.get_vales(staff_id=staff_id, week_id=week_id)
+
+@app.post("/api/vales")
+def create_vale(v: ValeIn):
+    row = db.record_vale(v.staff_id, v.amount, v.note, v.week_id, v.date)
+    if row is None:
+        raise HTTPException(400, "Amount must be positive and staff must exist")
+    return row
+
+@app.delete("/api/vales/{vale_id}")
+def delete_vale(vale_id: int):
+    if not db.delete_vale(vale_id):
+        raise HTTPException(404, "Vale not found")
+    return {"ok": True}
+
+
+# ---------- Team + dashboard ----------
+
+@app.get("/api/team")
+def team():
+    return db.get_team()
+
+@app.get("/api/dashboard")
+def dash():
+    return db.dashboard()
 
 
 # ---------- Weeks ----------
@@ -130,11 +177,11 @@ def delete_week(week_id: int):
     return {"ok": True}
 
 
-# ---------- Entries (hours + vales per staff per week) ----------
+# ---------- Entries (hours per staff per week) ----------
 
 @app.put("/api/weeks/{week_id}/save")
-def save_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
-    """Save the whole week in one round-trip: pool + every entry.
+def save_week(week_id: int, data: WeekSaveIn):
+    """Save the whole week in one round-trip: pool + every entry's hours.
     The UI edits the full grid and saves once — no per-cell churn."""
     wk = db.get_week(week_id)
     if not wk:
@@ -148,9 +195,15 @@ def save_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
 def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
     """Live split preview for the edit grid — same math as saving, but
     nothing is written. Keeps the browser free of a second formula."""
-    if not db.get_week(week_id):
+    wk = db.get_week(week_id)
+    if not wk:
         raise HTTPException(404, "Week not found")
-    return _preview(data.pool_eur, [e.model_dump() for e in data.entries], _lang(lang))
+    entries = [e.model_dump() for e in data.entries]
+    # the week's vales come from the ledger, so the preview matches a save
+    vales = {e["staff_id"]: e["vales"] for e in wk["entries"]}
+    for e in entries:
+        e["vales"] = vales.get(e["staff_id"], 0.0)
+    return _preview(data.pool_eur, entries, _lang(lang))
 
 @app.post("/api/weeks/{week_id}/lock")
 def lock_week(week_id: int, closed_by: str = ""):

@@ -123,8 +123,10 @@ def test_staff_view_carries_only_their_own_advances(venue):
     d, ana, bruno, wk = venue
     d.record_vale(bruno["id"], 5.0, "dele", week_id=wk["id"])
     mine = d.staff_view(ana["id"])["vales"]
-    assert [v["amount"] for v in mine] == [10.0]
-    assert all(v["staff_id"] == ana["id"] for v in mine)
+    assert [b["week_id"] for b in mine] == [wk["id"]]          # grouped per week
+    assert [v["amount"] for v in mine[0]["rows"]] == [10.0]
+    assert mine[0]["total"] == 10.0
+    assert all(v["staff_id"] == ana["id"] for v in mine[0]["rows"])
 
 
 def test_history_lists_only_locked_weeks_with_their_own_hours(venue):

@@ -126,11 +126,22 @@ def list_vales(staff_id: int | None = None, week_id: int | None = None):
 
 @app.post("/api/vales")
 def create_vale(v: ValeIn):
-    row = db.record_vale(v.staff_id, v.amount, v.note, v.week_id, v.date)
+    """An advance always belongs to a week — with no week there is nothing to
+    deduct from, so that's a 400, not an orphan row."""
+    try:
+        row = db.record_vale(v.staff_id, v.amount, v.note, v.week_id, v.date)
+    except ValueError as e:
+        raise HTTPException(400, f"Semana inválida: {e}")
     if row is None:
-        raise HTTPException(400, "Amount must be positive and staff must exist")
+        raise HTTPException(400, "Valor tem de ser positivo e a pessoa tem de existir")
     db.audit("vale.add", f"{row['name']} {row['amount']}€ semana={row['week_id']}")
     return row
+
+
+@app.get("/api/vales/grouped")
+def vales_grouped(limit: int = 12):
+    """The ledger read the way V reads it: one bucket per week."""
+    return db.vales_by_week(limit=limit)
 
 @app.delete("/api/vales/{vale_id}")
 def delete_vale(vale_id: int):

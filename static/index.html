@@ -304,9 +304,14 @@
       <div class="panel">
         <h2>Adiantamento (vale)</h2>
         <div class="row">
-          <select id="valeStaff" class="grow"></select>
-          <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€" style="width: 96px">
-          <input id="valeNote" class="grow" placeholder="motivo">
+          <div style="width: 220px"><label>Semana</label><select id="valeWeek"></select></div>
+          <div class="grow"><label>Pessoa</label><select id="valeStaff"></select></div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div style="width: 130px"><label>Valor €</label>
+            <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€"></div>
+          <div class="grow"><label>Motivo</label>
+            <input id="valeNote" placeholder="motivo"></div>
           <button id="addValeBtn">Registar</button>
         </div>
         <div id="valeList" style="margin-top: 10px;"></div>
@@ -626,6 +631,8 @@ async function openWeek(id) {
 
     <div class="statement" id="statement">${esc(w.statement || "")}</div>
 
+    <div id="weekVales"></div>
+
     <div style="overflow-x: auto;">
     <table>
       <thead><tr>
@@ -658,6 +665,7 @@ async function openWeek(id) {
 
   renderGrid(w);
   renderMissing(w);
+  renderWeekVales(w);
   $("#badgeHoras").textContent = w.total_hours + " h";
   if (!locked) {
     $("#poolInput").addEventListener("input", () => scheduleSplit(w));
@@ -781,13 +789,15 @@ $("#addStaffBtn").addEventListener("click", async () => {
 $("#addValeBtn").addEventListener("click", async () => {
   const staff_id = parseInt($("#valeStaff").value);
   const amount = parseFloat($("#valeAmount").value);
+  const week_id = parseInt($("#valeWeek").value) || null;
   if (!staff_id || !(amount > 0)) { toast("Escolhe pessoa e valor"); return; }
+  if (!week_id) { toast("Cria uma semana primeiro"); return; }
   const row = await api("/api/vales", "POST",
-                        { staff_id, amount, note: $("#valeNote").value.trim() });
+    { staff_id, amount, note: $("#valeNote").value.trim(), week_id });
   $("#valeAmount").value = ""; $("#valeNote").value = "";
   toast(`Vale ${eur(row.amount)} → ${row.name}`);
-  await refreshSidebar();
-  if (currentWeek) openWeek(currentWeek);        // the week's nets changed
+  loadTeam(); loadWeeks(false);
+  if (currentWeek) openWeek(currentWeek);      // shares changed
 });
 
 $("#gateBtn").addEventListener("click", submitGate);
@@ -883,17 +893,35 @@ async function loadTeam() {
       toast(back ? "Reativada" : "Arquivada"); loadTeam(); loadWeeks(false);
     }));
 
-  // vale form: only active people
+  // vale form: active people + the week the advance belongs to (default: the open one)
   $("#valeStaff").innerHTML = active
     .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
     || '<option value="">—</option>';
-  $("#valeList").innerHTML = team.staff.some(s => s.vales_total) ? `
-    <table><tr><th>Pessoa</th><th class="num">Esta semana</th><th class="num">Total em dívida</th></tr>
-      ${team.staff.filter(s => s.vales_total).map(s => `
-        <tr><td>${esc(s.name)}</td>
-            <td class="num">${s.vales_week ? eur(s.vales_week) : "—"}</td>
-            <td class="num">${eur(s.vales_total)}</td></tr>`).join("")}
-    </table>` : '<div class="hint">Sem adiantamentos registados.</div>';
+  const weeks = await api("/api/weeks");
+  $("#valeWeek").innerHTML = weeks
+    .map(w => `<option value="${w.id}"${w.id === team.week_id ? " selected" : ""}>${fmtDate(w.start_date)}${w.status === "locked" ? " · fechada" : ""}</option>`)
+    .join("") || '<option value="">—</option>';
+  $("#valeList").innerHTML = (await api("/api/vales/grouped")).map(g => `
+    <div style="margin-top:12px">
+      <div class="cap">Semana de ${fmtDate(g.start_date)}${g.status === "locked" ? " · fechada" : ""}
+        — ${eur(g.total)}</div>
+      <table>
+        <tr><th>Pessoa</th><th>Motivo</th><th class="num">Valor</th><th></th></tr>
+        ${g.rows.map(v => `<tr><td class="staff-name">${esc(v.name || "")}</td>
+          <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+          <td class="num net-share">${eur(v.amount)}</td>
+          <td class="num"><button class="ghost pinbtn" data-delvale="${v.id}" title="apagar">✕</button></td></tr>`).join("")}
+        <tr class="total"><td colspan="2">Total da semana</td>
+          <td class="num">${eur(g.total)}</td><td></td></tr>
+      </table>
+    </div>`).join("") || '<div class="hint">Sem adiantamentos registados.</div>';
+  $("#valeList").querySelectorAll("[data-delvale]").forEach(b =>
+    b.addEventListener("click", async () => {
+      await api("/api/vales/" + b.dataset.delvale, "DELETE");
+      toast("Adiantamento apagado");
+      loadTeam(); loadWeeks(false);
+      if (currentWeek) openWeek(currentWeek);
+    }));
 }
 
 // ---------- quem falta preencher ----------
@@ -905,6 +933,33 @@ function renderMissing(w) {
       <b style="color:var(--warn)">Faltam horas de ${missing.length} pessoa${missing.length > 1 ? "s" : ""}</b>
       — ${missing.map(s => esc(s.name)).join(", ")}. Antes de fechar a semana.
     </div>`;
+}
+
+// ---------- the week's own advances (vales are per week) ----------
+async function renderWeekVales(w) {
+  const rows = await api("/api/vales?week_id=" + w.id);
+  const total = rows.reduce((a, v) => a + v.amount, 0);
+  const locked = w.status === "locked";
+  $("#weekVales").innerHTML = !rows.length ? "" : `
+    <div class="cap" style="margin-top:14px">Adiantamentos desta semana — ${eur(total)}</div>
+    <table>
+      <tr><th>Pessoa</th><th>Motivo</th><th class="num">Valor</th><th></th></tr>
+      ${rows.map(v => `<tr><td class="staff-name">${esc(v.name || "")}</td>
+        <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+        <td class="num net-share">${eur(v.amount)}</td>
+        <td class="num">${locked ? "" : `<button class="ghost pinbtn" data-delvale3="${v.id}" title="apagar">✕</button>`}</td></tr>`).join("")}
+      <tr class="total"><td colspan="2">Total desta semana</td><td class="num">${eur(total)}</td><td></td></tr>
+    </table>
+    <div class="hint">${locked
+      ? "Semana fechada: os adiantamentos já estão no comprovativo de cada pessoa."
+      : "Registam-se em Equipa → Adiantamento, sempre dentro de uma semana."}</div>`;
+  $("#weekVales").querySelectorAll("[data-delvale3]").forEach(b =>
+    b.addEventListener("click", async () => {
+      await api("/api/vales/" + b.dataset.delvale3, "DELETE");
+      toast("Adiantamento apagado");
+      loadWeeks(false);
+      if (currentWeek) openWeek(currentWeek);
+    }));
 }
 
 // ---------- the team's own page (variant B) ----------
@@ -972,12 +1027,17 @@ async function startStaff(name) {
 
     ${d.vales.length ? `
     <div class="panel" style="margin-top:12px">
-      <div class="cap" style="margin-bottom:6px">Os meus adiantamentos</div>
-      <table><tr><th>Data</th><th>Motivo</th><th class="num">Valor</th></tr>
-        ${d.vales.map(v => `<tr><td>${esc((v.date || "").slice(0, 10))}</td>
-          <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
-          <td class="num">${eur(v.amount)}</td></tr>`).join("")}
-      </table></div>` : ""}
+      <div class="cap" style="margin-bottom:6px">Os meus adiantamentos (por semana)</div>
+      ${d.vales.map(g => `
+        <div style="margin-top:8px">
+          <div class="cap">Semana de ${fmtDate(g.start_date)} — ${eur(g.total)}</div>
+          <table><tr><th>Data</th><th>Motivo</th><th class="num">Valor</th></tr>
+            ${g.rows.map(v => `<tr><td>${esc((v.date || "").slice(0, 10))}</td>
+              <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+              <td class="num">${eur(v.amount)}</td></tr>`).join("")}
+          </table>
+        </div>`).join("")}
+    </div>` : ""}
 
     ${d.history.length ? `
     <div class="panel" style="margin-top:12px">

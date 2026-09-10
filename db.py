@@ -312,7 +312,7 @@ def staff_view(staff_id: int, weeks: int = 12):
                         "me": e["staff_id"] == staff_id}
                        for e in current["entries"] if e["hours"] or e["vales"]]
 
-    out["vales"] = get_vales(staff_id=staff_id)
+    out["vales"] = vales_by_week(staff_id=staff_id)     # grouped per week, own only
     out["history"] = history
     return out
 
@@ -445,19 +445,26 @@ def open_week_id():
 
 def record_vale(staff_id: int, amount: float, note: str = "",
                 week_id: int | None = None, date: str | None = None):
-    """One dated advance. week_id None = link to the open week if there is one;
-    pass -1 to keep it standalone. Returns the row, or None for a bad amount."""
+    """One dated advance, always attached to a week (V, 2026-09-10).
+
+    week_id None → the open week. With no week at all there is nothing to deduct
+    from, so that raises instead of creating an orphan. Returns the row, or None
+    for a bad amount or an unknown person.
+    """
     amount = round(float(amount), 2)
     if amount <= 0:
         return None
     if week_id is None:
         week_id = open_week_id()
-    elif week_id == -1:
-        week_id = None
+    if week_id is None:
+        raise ValueError("no week to attach the advance to")
     conn = _conn()
     if not conn.execute("SELECT 1 FROM staff WHERE id=?", (staff_id,)).fetchone():
         conn.close()
         return None
+    if not conn.execute("SELECT 1 FROM weeks WHERE id=?", (week_id,)).fetchone():
+        conn.close()
+        raise ValueError("unknown week")
     cur = conn.execute(
         "INSERT INTO vales (staff_id, date, week_id, amount, note) VALUES (?,?,?,?,?)",
         (staff_id, date or _today(), week_id, amount, note))
@@ -465,6 +472,25 @@ def record_vale(staff_id: int, amount: float, note: str = "",
     vid = cur.lastrowid
     conn.close()
     return get_vale(vid)
+
+
+def vales_by_week(staff_id: int | None = None, limit: int = 12):
+    """The ledger grouped the way it is now read: per week. Each bucket carries its
+    own subtotal, newest week first."""
+    rows = get_vales(staff_id=staff_id)
+    weeks = {w["id"]: w for w in get_weeks()}
+    buckets: dict[int | None, dict] = {}
+    for v in rows:
+        b = buckets.setdefault(v["week_id"], {
+            "week_id": v["week_id"],
+            "start_date": (weeks.get(v["week_id"]) or {}).get("start_date"),
+            "status": (weeks.get(v["week_id"]) or {}).get("status"),
+            "rows": [], "total": 0.0})
+        b["rows"].append(v)
+        b["total"] = round(b["total"] + v["amount"], 2)
+    out = sorted(buckets.values(),
+                 key=lambda b: (b["start_date"] or "", b["week_id"] or 0), reverse=True)
+    return out[:limit]
 
 
 def get_vale(vale_id: int):

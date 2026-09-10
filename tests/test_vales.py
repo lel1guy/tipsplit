@@ -38,14 +38,37 @@ def test_record_vale_links_to_the_open_week(fresh):
     assert row["date"]                       # dated, always
 
 
-def test_standalone_vale_has_no_week(fresh):
-    _clean_week(fresh)
-    fresh.create_week("2026-10-19")
+def test_a_vale_always_belongs_to_a_week(fresh):
+    """V, 2026-09-10: no standalone advances — with no week there is nothing to
+    deduct from, so it's refused instead of creating an orphan."""
+    conn = fresh._conn()
+    for t in ("vales", "entries", "staff", "weeks", "week_pools"):
+        conn.execute(f"DELETE FROM {t}")
+    conn.commit()
+    conn.close()
     ana = fresh.create_staff("Ana Test")
-    row = fresh.record_vale(ana["id"], 10.0, week_id=-1)
-    assert row["week_id"] is None
-    # and it must NOT show up in any week's ledger total
-    assert fresh.get_week(fresh.get_weeks()[0]["id"])["entries"] == []
+    with pytest.raises(ValueError):
+        fresh.record_vale(ana["id"], 10.0)                 # no week exists at all
+    with pytest.raises(ValueError):
+        fresh.record_vale(ana["id"], 10.0, week_id=424242)  # week that doesn't exist
+    assert fresh.get_vales() == []
+    wk = fresh.create_week("2026-10-19")                   # now it attaches to the open one
+    assert fresh.record_vale(ana["id"], 10.0)["week_id"] == wk["id"]
+
+
+def test_vales_group_by_week_with_subtotals(fresh):
+    wk = _clean_week(fresh)
+    older = fresh.create_week("2026-09-28")
+    a = fresh.create_staff("Ana Test")
+    fresh.record_vale(a["id"], 10.0, "atual", week_id=wk["id"])
+    fresh.record_vale(a["id"], 2.5, "atual", week_id=wk["id"])
+    fresh.record_vale(a["id"], 7.0, "antigo", week_id=older["id"])
+    buckets = fresh.vales_by_week()
+    assert [b["week_id"] for b in buckets] == [wk["id"], older["id"]]   # newest first
+    assert buckets[0]["total"] == 12.5 and len(buckets[0]["rows"]) == 2
+    assert buckets[1]["total"] == 7.0
+    assert buckets[0]["start_date"] == wk["start_date"]
+    assert fresh.vales_by_week(staff_id=424242) == []
 
 
 def test_bad_vales_rejected(fresh):
@@ -109,7 +132,9 @@ def test_team_balances_and_dashboard(fresh):
     a = fresh.create_staff("Ana Test", "Bartender")
     fresh.save_week(week["id"], 400.0, [{"staff_id": a["id"], "mon": 8, "tue": 8}])
     fresh.record_vale(a["id"], 30.0, week_id=week["id"])
-    fresh.record_vale(a["id"], 12.0, week_id=-1)         # standalone, old advance
+    older = fresh.create_week("2026-09-28")
+    fresh.save_week(older["id"], 200.0, [{"staff_id": a["id"], "mon": 8}])
+    fresh.record_vale(a["id"], 12.0, week_id=older["id"])   # an older week's advance
     team = fresh.get_team()
     row = [s for s in team["staff"] if s["id"] == a["id"]][0]
     assert row["vales_week"] == 30.0 and row["vales_total"] == 42.0

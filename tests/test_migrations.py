@@ -9,7 +9,7 @@ import pytest
 
 import db
 
-LATEST = 5          # bump when a migration lands
+LATEST = 6          # bump when a migration lands
 
 
 def _legacy_v0_db(path, staff=("Ana", "Bruno"), pool=500.0, vale=10.0):
@@ -76,6 +76,29 @@ class TestLegacyUpgrade:
             "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
         conn.close()
         assert {"settings", "vales", "audit_log"} <= set(tables)
+
+    def test_orphan_vales_get_attached_to_a_week(self, legacy_db):
+        """006: a vale with no week (from the standalone era) is attached to the week
+        its date falls in when the migration runs."""
+        d, path, week_id = legacy_db
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
+        staff_id = conn.execute("SELECT id FROM staff LIMIT 1").fetchone()["id"]
+        start = conn.execute("SELECT start_date FROM weeks WHERE id=?",
+                             (week_id,)).fetchone()["start_date"]
+        conn.execute("INSERT INTO vales (staff_id, date, week_id, amount, note) "
+                     "VALUES (?,?,NULL,?,?)", (staff_id, start, 4.5, "orfao"))
+        conn.execute("PRAGMA user_version = 5")           # rewind so 006 runs again
+        conn.commit()
+        d.migrate(conn)
+        conn.close()
+
+        check = sqlite3.connect(path)
+        check.row_factory = sqlite3.Row
+        row = check.execute("SELECT week_id FROM vales WHERE note='orfao'").fetchone()
+        assert row["week_id"] == week_id, "orphan advance was not attached to its week"
+        assert check.execute("PRAGMA user_version").fetchone()[0] == LATEST
+        check.close()
 
     def test_old_week_defaults_to_open(self, legacy_db):
         d, _, week_id = legacy_db

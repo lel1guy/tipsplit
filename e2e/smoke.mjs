@@ -128,12 +128,18 @@ async function run() {
   await page.waitForSelector("#teamPanel table");
   ok("equipa view lists the roster with access state",
      (await page.textContent("#teamPanel")).includes("sem PIN"));
+  ok("vale form asks which week the advance belongs to",
+     (await page.$$("#valeWeek option")).length >= 1);
   await page.fill("#valeAmount", "10");
   await page.fill("#valeNote", "adiantamento qa");
   await page.click("#addValeBtn");
-  await sleep(900);
+  await page.waitForFunction(
+    () => document.querySelector("#valeList").textContent.includes("10,00"),
+    null, { timeout: 15000 });
   ok("vale listed under the person",
      (await page.textContent("#valeList")).includes("10,00"));
+  ok("ledger is grouped per week", (await page.textContent("#valeList")).includes("Semana de"),
+     (await page.textContent("#valeList")).slice(0, 60));
   await page.click("#teamPanel [data-pin]");               // prompt answers "4321"
   await page.waitForFunction(() =>
     document.querySelector("#teamPanel").textContent.includes("PIN ✓"),
@@ -149,6 +155,9 @@ async function run() {
      `${netBefore} -> ${netAfter}`);
   ok("vale visible in the week grid",
      (await page.textContent("#gridBody tr:nth-child(1) [data-vales]")).includes("10"));
+  ok("the week shows its own advances",
+     (await page.textContent("#weekVales")).includes("10,00"),
+     (await page.textContent("#weekVales")).slice(0, 60));
 
   // ---- 7. lock the week ----
   await page.click("#lockBtn");

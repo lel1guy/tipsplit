@@ -15,6 +15,14 @@ language, separate product.
 
 ---
 
+## Docs
+
+- **[README](README.pt-PT.md)** (PT-PT) — this file, in Portuguese.
+- **[User Guide](docs/USER_GUIDE.md)** — the manager's manual: the weekly ritual, vales,
+  payday, closing and reopening weeks, staff PINs, common questions.
+  [PT-PT version](docs/USER_GUIDE.pt-PT.md).
+- **DEV_GUIDE** — architecture, migrations, tests, deploy, PIN recovery. *(planned)*
+
 ## Who it's for
 
 Venues with **5–30 staff** in Portugal/EU where tips are pooled and split by hours.

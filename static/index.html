@@ -674,8 +674,8 @@ async function openWeek(id) {
       <span class="check" id="checkMsg"></span>
     </div>
     <div class="row" style="margin-top: 10px;">
-      ${locked ? `<a class="btn" href="/print/payslips/${w.id}" target="_blank" rel="noopener">Payslips</a>
-        <a class="btn" href="/print/cashsheet/${w.id}" target="_blank" rel="noopener">Cash sheet</a>` : ""}
+      ${locked ? `<a class="btn" href="/print/payslips/${w.id}" target="_blank" rel="noopener">Comprovativos</a>
+        <a class="btn" href="/print/cashsheet/${w.id}" target="_blank" rel="noopener">Folha de caixa</a>` : ""}
       <a class="btn" href="/api/export/week/${w.id}?fmt=xlsx">Excel</a>
       <a class="btn" href="/api/export/week/${w.id}?fmt=csv">CSV</a>
     </div>

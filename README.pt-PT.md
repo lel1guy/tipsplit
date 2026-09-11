@@ -16,6 +16,14 @@ linguagem de design, produto separado.
 
 ---
 
+## Documentação
+
+- **[README](README.md)** (English) — este ficheiro, em inglês.
+- **[Guia de utilização](docs/USER_GUIDE.pt-PT.md)** — o manual de quem gere: o ritual
+  da semana, vales, dia de pagamento, fechar e reabrir semanas, PINs da equipa, perguntas
+  frequentes. [Versão inglesa](docs/USER_GUIDE.md).
+- **DEV_GUIDE** — arquitetura, migrações, testes, instalação, recuperação do PIN. *(a fazer)*
+
 ## Para quem é
 
 Casas com **5 a 30 pessoas** em Portugal/UE onde as gorjetas vão para um pote e se

@@ -241,6 +241,10 @@ async function run() {
   ok("unlock button offered", (await page.$$("#unlockBtn")).length === 1);
   const payslipHref = await page.getAttribute('a[href*="/print/payslips/"]', "href");
   ok("payslip link present", !!payslipHref, String(payslipHref));
+  const paydayLabels = await page.$$eval('a[href^="/print/"]', as => as.map(a => a.textContent.trim()));
+  ok("payday pages are labelled in PT-PT",
+     paydayLabels.includes("Comprovativos") && paydayLabels.includes("Folha de caixa"),
+     paydayLabels.join(" | "));
   const weekId = payslipHref.match(/payslips\/(\d+)/)[1];
 
   // ---- 8. payday paperwork ----

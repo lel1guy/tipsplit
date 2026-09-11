@@ -594,9 +594,12 @@ async function refreshSidebar() {
   const t = await api("/api/team");
   staffCache = t.staff;
   $("#badgeEquipa").textContent = t.staff.filter(s => !s.archived).length;
-  await loadDash();
-  // the roster itself lives in the Equipa view — refresh it only when it's on screen
-  if ($("#view-equipa").classList.contains("active")) await loadTeam();
+  // one panel hiccup must not leave the others stale — a transient failure in the
+  // dashboard used to skip the roster refresh entirely, silently
+  await Promise.allSettled([
+    loadDash(),
+    $("#view-equipa").classList.contains("active") ? loadTeam() : Promise.resolve(),
+  ]);
 }
 
 // ---------- render: week detail ----------
@@ -797,11 +800,18 @@ $("#newWeekBtn").addEventListener("click", async () => {
 $("#addStaffBtn").addEventListener("click", async () => {
   const name = $("#staffName").value.trim();
   if (!name) return;
-  const s = await api("/api/staff", "POST",
-                      { name, position: $("#staffPosition").value.trim() });
+  let s;
+  try {
+    s = await api("/api/staff", "POST",
+                  { name, position: $("#staffPosition").value.trim() });
+  } catch (e) {
+    toast("Não foi possível adicionar — tenta outra vez");
+    return;
+  }
   if (!s) { toast("Nome já existe"); return; }
   $("#staffName").value = ""; $("#staffPosition").value = "";
   toast("Adicionado " + s.name);
+  await loadTeam();                  // the roster + the person/vale selects
   await refreshSidebar();
   if (currentWeek) openWeek(currentWeek);
 });
@@ -881,8 +891,17 @@ document.querySelectorAll("[data-view]").forEach(b =>
 
 // ---------- equipa: roster, PINs, vale balances ----------
 let team = { staff: [], week_id: null };
+let teamRefresh = null;               // in-flight roster refresh, if any
 
 async function loadTeam() {
+  // Coalesce: two refreshes in flight would each re-render the panel, and the later
+  // one silently resets whatever the user had selected in the person/week selects.
+  if (teamRefresh) return teamRefresh;
+  teamRefresh = _loadTeam().finally(() => { teamRefresh = null; });
+  return teamRefresh;
+}
+
+async function _loadTeam() {
   team = await api("/api/team");
   const active = team.staff.filter(s => !s.archived);
   $("#badgeEquipa").textContent = String(active.length);
@@ -930,13 +949,18 @@ async function loadTeam() {
     }));
 
   // vale form: active people + the week the advance belongs to (default: the open one)
+  const keepWho = $("#valeStaff").value, keepWeek = $("#valeWeek").value;
   $("#valeStaff").innerHTML = active
     .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")
     || '<option value="">—</option>';
+  if (keepWho && [...$("#valeStaff").options].some(o => o.value === keepWho))
+    $("#valeStaff").value = keepWho;                 // don't lose the user's choice
   const weeks = await api("/api/weeks");
   $("#valeWeek").innerHTML = weeks
     .map(w => `<option value="${w.id}"${w.id === team.week_id ? " selected" : ""}>${fmtDate(w.start_date)}${w.status === "locked" ? " · fechada" : ""}</option>`)
     .join("") || '<option value="">—</option>';
+  if (keepWeek && [...$("#valeWeek").options].some(o => o.value === keepWeek))
+    $("#valeWeek").value = keepWeek;
   $("#valeMaxNote").textContent = (settingsCache.vale_max
     ? `Máximo por adiantamento: ${eur(settingsCache.vale_max)} (muda em Definições). `
     : "Sem limite por adiantamento (define um em Definições). ")

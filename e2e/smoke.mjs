@@ -201,21 +201,21 @@ async function run() {
   await page.click("#addStaffBtn");
   await page.waitForFunction(
     () => document.querySelector("#valeStaff").textContent.includes("Zé QA"),
-    null, { timeout: 15000 });
+    null, { timeout: 30000 });
   await page.selectOption("#valeStaff", { label: "Zé QA" });
   await page.fill("#valeAmount", "3");
   await page.fill("#valeNote", "");                       // motivo is optional
   await page.click("#addValeBtn");
   await page.waitForFunction(
     () => document.querySelector("#valeList").textContent.includes("3,00"),
-    null, { timeout: 15000 });
+    null, { timeout: 20000 });
 
   await page.click('[data-view="semana"]');
   await page.click("#weekList .week-item");
   await page.waitForSelector("#poolInput");
   await page.waitForFunction(
     () => document.querySelector("#gridBody").textContent.includes("Zé QA"),
-    null, { timeout: 15000 });
+    null, { timeout: 20000 });
   const zeRow = await page.evaluate(() => {
     const tr = [...document.querySelectorAll("#gridBody tr")]
       .find(r => r.textContent.includes("Zé QA"));

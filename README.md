@@ -140,7 +140,13 @@ weights. The product plan lives in the vault
 
 ## License
 
-**Private repository.** No license is granted: the code, docs and screenshots are not for
-redistribution. The sister app [BarSpec](https://github.com/lel1guy/barspec) is public
-under AGPL-3.0 with a commercial option — TipSplit is a separate product and stays
-private until the venture says otherwise.
+**GNU AGPL-3.0** — see [LICENSE](LICENSE). You may use, study, modify and self-host
+TipSplit freely; if you run a modified version as a network service, the AGPL requires you
+to publish your changes.
+
+**Commercial license available on request** — if you want to embed TipSplit in a closed
+product, or offer it as a hosted service without the AGPL's source-disclosure obligations,
+contact me for a commercial license (dual-licensing; I hold the copyright).
+
+Same terms as its sister app [BarSpec](https://github.com/lel1guy/barspec): one open,
+both dual-licensed.

@@ -148,8 +148,13 @@ multimoeda, pesos por função. O plano do produto vive no vault
 
 ## Licença
 
-**Repositório privado.** Não é concedida qualquer licença: o código, a documentação e as
-capturas não são para redistribuição. A aplicação irmã
-[BarSpec](https://github.com/lel1guy/barspec) é pública sob AGPL-3.0 com uma opção
-comercial — o TipSplit é um produto separado e mantém-se privado até o projeto dizer o
-contrário.
+**GNU AGPL-3.0** — ver [LICENSE](LICENSE). Podes usar, estudar, modificar e alojar o
+TipSplit à vontade; se correres uma versão modificada como serviço em rede, a AGPL obriga a
+publicar as tuas alterações.
+
+**Licença comercial disponível a pedido** — para integrar o TipSplit num produto fechado, ou
+oferecê-lo como serviço alojado sem as obrigações de divulgação do código da AGPL, fala
+comigo (licenciamento duplo; os direitos de autor são meus).
+
+As mesmas condições da aplicação irmã [BarSpec](https://github.com/lel1guy/barspec): uma
+aberta, ambas com licenciamento duplo.

@@ -64,6 +64,8 @@ TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 87
   not hidden in the browser.
 - **Owner PIN gate + audit trail**: one login field (owner PIN → management, staff PIN →
   that person's page). Saves, locks, reopenings, advances and PIN changes are logged.
+- **Two languages**: PT-PT by default, English from *Definições* (interface, printed
+  payslips and the statement).
 - **Runs on a venue LAN** with no internet: one HTML file, vanilla JS, system fonts,
   SQLite. No cloud, no accounts, no build step.
 
@@ -116,10 +118,12 @@ order, with what to say.
 
 Shipped: the week ritual, the provable split, vales per week with a ceiling, locking and
 unlock-with-reason, payslips/cash sheet/exports, the owner PIN gate with an audit trail,
-the team's own page, mobile layout, and this docs set (76 tests + 60 browser assertions).
+the team's own page, mobile layout, and this docs set (78 tests + 63 browser assertions).
 
-Next: an English toggle for the interface (it is PT-PT by design — the people typing
-hours are Portuguese-speaking), then whatever a real venue asks for first. Deliberately
+Shipped since: **a PT-PT/English toggle** in *Definições* — the interface, the fairness
+statement and the printed payslips follow it (reload keeps the choice); the spreadsheet
+exports stay Portuguese. The interface defaults to PT-PT, because the people typing hours
+at closing time are Portuguese-speaking. Next: whatever a real venue asks for first. Deliberately
 **not** in scope: money movement, POS or payroll integrations, multi-currency, position
 weights. The product plan lives in the vault
 (`Projects/Bar-Tech-Venture/tipsplit/TipSplit-Vision-and-Dev-Plan.md`).

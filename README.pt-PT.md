@@ -125,11 +125,14 @@ momentos, por ordem, com o que dizer.
 Entregue: o ritual da semana, a parte comprovável, vales por semana com limite, fecho e
 reabertura com motivo, comprovativos/folha de caixa/exportações, o portão do PIN do dono
 com registo de alterações, a página própria da equipa, disposição para telemóvel e este
-conjunto de documentação (76 testes + 60 asserções de navegador).
+conjunto de documentação (78 testes + 63 asserções de navegador).
 
-A seguir: um botão para inglês na interface (é PT-PT por opção — quem escreve as horas
-fala português), depois aquilo que uma casa real pedir primeiro. Deliberadamente **fora**
-de âmbito: movimento de dinheiro, integrações com POS ou processamento salarial,
+Já entregue desde então: **botão PT-PT/inglês** em *Definições* — a interface, a regra da
+divisão e os comprovativos impressos seguem-no (um recarregamento mantém a escolha); as
+exportações de folha de cálculo ficam em português. A interface começa em PT-PT, porque
+quem escreve as horas ao fechar a casa fala português. A seguir: aquilo que uma casa real
+pedir primeiro. Deliberadamente **fora** de âmbito: movimento de dinheiro, integrações com
+POS ou processamento salarial,
 multimoeda, pesos por função. O plano do produto vive no vault
 (`Projects/Bar-Tech-Venture/tipsplit/TipSplit-Vision-and-Dev-Plan.md`).
 

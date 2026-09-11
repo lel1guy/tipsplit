@@ -89,7 +89,7 @@ def fmt_eur(value: float, lang: str = "pt") -> str:
     s = f"{value:,.2f}"
     if lang.startswith("pt"):
         return s.replace(",", "\u00a0").replace(".", ",").replace("\u00a0", ".") + " €"
-    return "€" + s
+    return s + " €"
 
 
 def statement(pool_eur: float, total_hours: float, lang: str = "pt") -> str:
@@ -103,8 +103,8 @@ def statement(pool_eur: float, total_hours: float, lang: str = "pt") -> str:
     if lang.startswith("pt"):
         return (f"{fmt_eur(pool_eur, lang)} ÷ {hours} h = {fmt_eur(rate, lang)}/h. "
                 f"Regra: horas ÷ total de horas. Nenhuma parte fica com a casa.")
-    return (f"{fmt_eur(pool_eur, lang)} / {hours} h = {fmt_eur(rate, lang)}/h. "
-            f"Rule: hours / total hours. The house keeps no share.")
+    return (f"{fmt_eur(pool_eur, lang)} ÷ {hours} h = {fmt_eur(rate, lang)}/h. "
+            f"Rule: hours ÷ total hours. No part stays with the house.")
 
 
 if __name__ == "__main__":  # tiny self-check

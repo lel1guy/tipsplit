@@ -120,6 +120,7 @@ recusa, não é só esconder no ecrã. Partilhar PIN é recusado — se dois tê
 | Campo | O que faz |
 |-------|-----------|
 | Nome da casa | aparece nos comprovativos e na folha de caixa impressos |
+| Idioma / Language | PT-PT ou inglês. Muda logo a interface toda, os comprovativos impressos e a regra da divisão; um recarregamento mantém a escolha. As exportações de folha de cálculo ficam em português |
 | Vale máximo (€) | limite por adiantamento; `0` = sem limite |
 | PIN do dono | mudar o seu próprio PIN |
 | Alterações recentes | as últimas mudanças com hora: gravações, fechos, reaberturas, adiantamentos, PINs |

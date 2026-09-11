@@ -299,7 +299,8 @@ def staff_view(staff_id: int, weeks: int = 12):
             "status": current["status"], "pool_eur": current["pool_eur"],
             "total_hours": current["total_hours"],
             "rate_per_hour": current["rate_per_hour"],
-            "statement": splitting.statement(current["pool_eur"], current["total_hours"]),
+            "statement": splitting.statement(current["pool_eur"], current["total_hours"],
+                                     get_setting("lang", "pt")),
         }
         if current_line:
             out["mine"] = {"hours": current_line["hours"], "vales": current_line["vales"],

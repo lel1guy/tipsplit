@@ -117,6 +117,7 @@ the same one, it isn't theirs anymore.
 | Field | What it does |
 |-------|--------------|
 | Nome da casa | appears on printed payslips and the cash sheet |
+| Idioma / Language | PT-PT or English. Changes the whole interface, the printed payslips and the fairness statement straight away; a reload keeps it. The spreadsheet exports stay Portuguese |
 | Vale máximo (€) | ceiling per advance; `0` = no limit |
 | PIN do dono | change your own PIN |
 | Alterações recentes | the last changes with time: saves, locks, reopenings, advances, PINs |

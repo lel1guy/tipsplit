@@ -242,7 +242,7 @@
     <input id="gatePin" type="password" inputmode="numeric" placeholder="PIN"
            autocomplete="current-password">
     <div class="row" style="margin-top: 10px;">
-      <button id="gateBtn">Entrar</button>
+      <button id="gateBtn" data-t="gate_enter">Entrar</button>
       <span class="check" id="gateCheck"></span>
     </div>
   </div>
@@ -251,35 +251,35 @@
 <div class="app">
   <aside class="side">
     <div class="brand">
-      <span class="word">TipSplit</span><em>gorjetas</em>
+      <span class="word">TipSplit</span><em data-t="brand_tips">gorjetas</em>
       <span class="ver" id="brandVer">v0.8</span>
     </div>
 
-    <div class="grp">Semanas</div>
-    <button id="newWeekBtn" class="navitem">+ Nova semana</button>
+    <div class="grp" data-t="grp_weeks">Semanas</div>
+    <button id="newWeekBtn" class="navitem" data-t="new_week">+ Nova semana</button>
     <div id="weekList" class="sidenav"></div>
 
-    <div class="grp">Gerir</div>
+    <div class="grp" data-t="grp_manage">Gerir</div>
     <div class="sidenav">
       <button class="navitem active" data-view="semana">
-        <span>Semana</span><span class="navbadge" id="badgeHoras">—</span></button>
+        <span data-t="nav_week">Semana</span><span class="navbadge" id="badgeHoras">—</span></button>
       <button class="navitem" data-view="equipa">
-        <span>Equipa</span><span class="navbadge" id="badgeEquipa">—</span></button>
-      <button class="navitem" data-view="definicoes"><span>Definições</span></button>
+        <span data-t="nav_team">Equipa</span><span class="navbadge" id="badgeEquipa">—</span></button>
+      <button class="navitem" data-view="definicoes"><span data-t="nav_settings">Definições</span></button>
     </div>
 
     <div style="margin-top: auto; padding-top: 14px;">
-      <button class="navitem" id="logoutBtn"><span>Sair</span></button>
+      <button class="navitem" id="logoutBtn"><span data-t="logout">Sair</span></button>
     </div>
   </aside>
 
   <main>
     <div class="mhead">
       <div>
-        <div class="crumb">KAIDO · TipSplit</div>
+        <div class="crumb" id="crumb">TipSplit</div>
         <h1 id="pageTitle">Semana</h1>
       </div>
-      <a class="btn" id="annualBtn" href="#" style="margin-left: auto;">Anual (Excel)</a>
+      <a class="btn" id="annualBtn" href="#" style="margin-left: auto;" data-t="annual_excel">Anual (Excel)</a>
     </div>
 
     <!-- ---------- view: semana ---------- -->
@@ -288,7 +288,7 @@
       <div id="dashNote" class="hint"></div>
       <div id="missing"></div>
       <div class="panel" id="detailPanel" style="margin-top: 16px;">
-        <div id="empty" class="empty">Escolhe uma semana à esquerda, ou cria uma nova.</div>
+        <div id="empty" class="empty" data-t="empty_week">Escolhe uma semana à esquerda, ou cria uma nova.</div>
         <div id="detail" class="hidden"></div>
       </div>
     </section>
@@ -296,34 +296,34 @@
     <!-- ---------- view: equipa ---------- -->
     <section class="view" id="view-equipa">
       <div class="panel">
-        <div class="panel-head"><h2>Equipa</h2>
+        <div class="panel-head"><h2 data-t="team_h">Equipa</h2>
           <span class="hint" id="teamHint"></span></div>
         <div id="teamPanel"></div>
       </div>
 
       <div class="panel">
-        <h2>Adiantamento (vale)</h2>
+        <h2 data-t="vale_panel">Adiantamento (vale)</h2>
         <div class="row">
-          <div style="width: 220px"><label>Semana</label><select id="valeWeek"></select></div>
-          <div class="grow"><label>Pessoa</label><select id="valeStaff"></select></div>
+          <div style="width: 220px"><label data-t="lbl_week">Semana</label><select id="valeWeek"></select></div>
+          <div class="grow"><label data-t="lbl_person">Pessoa</label><select id="valeStaff"></select></div>
         </div>
         <div class="row" style="margin-top: 8px;">
-          <div style="width: 130px"><label>Valor €</label>
+          <div style="width: 130px"><label data-t="lbl_amount">Valor €</label>
             <input id="valeAmount" type="number" step="0.01" min="0" placeholder="€"></div>
-          <div class="grow"><label>Motivo (opcional)</label>
-            <input id="valeNote" placeholder="motivo"></div>
-          <button id="addValeBtn">Registar</button>
+          <div class="grow"><label data-t="lbl_reason_opt">Motivo (opcional)</label>
+            <input id="valeNote" data-t-placeholder="ph_reason" placeholder="motivo"></div>
+          <button id="addValeBtn" data-t="register">Registar</button>
         </div>
         <div id="valeMaxNote" class="hint" style="margin-top: 6px;"></div>
         <div id="valeList" style="margin-top: 10px;"></div>
       </div>
 
       <div class="panel">
-        <h2>Nova pessoa</h2>
+        <h2 data-t="new_person">Nova pessoa</h2>
         <div class="row">
-          <input id="staffName" class="grow" placeholder="Nome">
-          <input id="staffPosition" placeholder="função" style="width: 150px">
-          <button id="addStaffBtn">Adicionar à equipa</button>
+          <input id="staffName" class="grow" data-t-placeholder="ph_name" placeholder="Nome">
+          <input id="staffPosition" data-t-placeholder="ph_position" placeholder="função" style="width: 150px">
+          <button id="addStaffBtn" data-t="add_to_team">Adicionar à equipa</button>
         </div>
       </div>
     </section>
@@ -331,35 +331,42 @@
     <!-- ---------- view: definições ---------- -->
     <section class="view" id="view-definicoes">
       <div class="panel">
-        <h2>A casa</h2>
+        <h2 data-t="the_house">A casa</h2>
         <div class="row">
-          <div class="grow"><label>Nome da casa</label>
-            <input id="venueName" placeholder="Nome da casa"></div>
-          <button id="saveVenueBtn">Guardar</button>
+          <div class="grow"><label data-t="lbl_house_name">Nome da casa</label>
+            <input id="venueName" data-t-placeholder="ph_house_name" placeholder="Nome da casa"></div>
+          <button id="saveVenueBtn" data-t="save">Guardar</button>
         </div>
         <div class="row" style="margin-top: 8px;">
-          <div style="width: 190px"><label>Vale máximo (€)</label>
-            <input id="valeMax" type="number" min="0" step="0.5" placeholder="0 = sem limite"></div>
-          <button id="saveValeMaxBtn">Guardar</button>
+          <div style="width: 190px"><label data-t="lbl_vale_max">Vale máximo (€)</label>
+            <input id="valeMax" type="number" min="0" step="0.5" data-t-placeholder="ph_vale_max" placeholder="0 = sem limite"></div>
+          <button id="saveValeMaxBtn" data-t="save">Guardar</button>
           <span class="hint" id="valeMaxHint" style="margin-left: 6px;"></span>
         </div>
-        <div class="hint" style="margin-top: 6px;">Limite por adiantamento. Os que já
+        <div class="row" style="margin-top: 8px;">
+          <div style="width: 190px"><label data-t="lbl_lang">Idioma</label>
+            <select id="langSel">
+              <option value="pt">Português</option>
+              <option value="en">English</option>
+            </select></div>
+        </div>
+        <div class="hint" style="margin-top: 6px;" data-t="vale_limit_note">Limite por adiantamento. Os que já
           existem ficam como estão — isto só trava os novos.</div>
       </div>
 
       <div class="panel">
-        <h2>PIN do dono</h2>
+        <h2 data-t="owner_pin">PIN do dono</h2>
         <div class="row">
-          <div class="grow"><label>Novo PIN</label>
-            <input id="newPin" type="password" inputmode="numeric" placeholder="Novo PIN"></div>
-          <div class="grow"><label>PIN atual</label>
-            <input id="curPin" type="password" inputmode="numeric" placeholder="atual"></div>
-          <button id="savePinBtn">Alterar PIN</button>
+          <div class="grow"><label data-t="lbl_new_pin">Novo PIN</label>
+            <input id="newPin" type="password" inputmode="numeric" data-t-placeholder="ph_new_pin" placeholder="Novo PIN"></div>
+          <div class="grow"><label data-t="lbl_cur_pin">PIN atual</label>
+            <input id="curPin" type="password" inputmode="numeric" data-t-placeholder="ph_cur_pin" placeholder="atual"></div>
+          <button id="savePinBtn" data-t="change_pin">Alterar PIN</button>
         </div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>Alterações recentes</h2></div>
+        <div class="panel-head"><h2 data-t="recent_changes">Alterações recentes</h2></div>
         <div id="auditList" class="audit">—</div>
       </div>
     </section>
@@ -371,10 +378,10 @@
   <main>
     <div class="mhead">
       <div>
-        <div class="crumb">TipSplit · equipa</div>
-        <h1>As minhas gorjetas</h1>
+        <div class="crumb" data-t="staff_crumb">TipSplit · equipa</div>
+        <h1 data-t="my_tips">As minhas gorjetas</h1>
       </div>
-      <button class="ghost" id="staffLogout">Sair</button>
+      <button class="ghost" id="staffLogout" data-t="logout">Sair</button>
     </div>
     <div id="staffBody"></div>
   </main>
@@ -386,6 +393,257 @@ const $ = (s) => document.querySelector(s);
 let currentWeek = null;
 let staffCache = [];
 let settingsCache = { venue_name: "", lang: "pt", vale_max: 0 };
+let LANG = "pt";                                  // pt-PT | en
+let currentView = "semana";                       // which panel is on screen
+let staffName = null;                             // set for a staff session, for re-render
+
+// ---------- i18n (PT-PT is the source; EN is British/neutral) ----------
+// Every user-visible string lives here. PT values are byte-identical to the
+// copy this app shipped before the toggle existed — the e2e asserts several.
+const I18N = {
+  pt: {
+    grp_weeks: "Semanas", new_week: "+ Nova semana", grp_manage: "Gerir",
+    nav_week: "Semana", nav_team: "Equipa", nav_settings: "Definições",
+    logout: "Sair", brand_tips: "gorjetas", annual_excel: "Anual (Excel)",
+    gate_setup_title: "Define um PIN", gate_login_title: "PIN da casa",
+    gate_setup_msg: "4+ dígitos. É isto que impede alguém de ver as gorjetas de todos.",
+    gate_login_msg: "Introduz o PIN para ver os dados da casa.",
+    gate_enter: "Entrar",
+    gate_rate_limit: "Demasiadas tentativas — espera 5 minutos.",
+    gate_wrong: "PIN errado.",
+    empty_week: "Escolhe uma semana à esquerda, ou cria uma nova.",
+    no_weeks: "Ainda não há semanas.",
+    stat_current_week: "Semana atual", stat_pool: "Pool", stat_hours: "Horas",
+    stat_to_pay: "A pagar", stat_advances: "Adiantamentos", stat_last_closed: "Última fechada",
+    dash_vale_warn: "⚠ {n} adiantamento(s) acima do ganho da semana — dívida ao pote.",
+    active_one: "1 pessoa ativa", active_many: "{n} pessoas ativas",
+    create_first_week: " · cria a primeira semana",
+    week_of: "Semana de {date}", badge_closed: "fechada", badge_open: "aberta",
+    badge_locked_opt: " · fechada",
+    week_facts: "{n} pessoas · {h} h no total", add_person: "+ Adicionar pessoa",
+    advance_noun: "adiantamento",
+    pool_total: "Pool (total €)", total_hours: "Total de horas", total_net: "Total líquido",
+    check_cap: "Conferência",
+    th_person: "Pessoa", th_hours: "Horas", th_vales: "Vales €", th_net: "Líquido €",
+    save_week: "Guardar semana", close_week: "Fechar semana",
+    unlock: "Desbloquear (com motivo)", payslips: "Comprovativos", cash_sheet: "Folha de caixa",
+    week_note: "As horas de cada dia (seg–dom) somam o total da pessoa. Parte = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.",
+    week_locked_note: "Semana fechada — para corrigir, é preciso desbloquear (com motivo).",
+    unlock_prompt: "Motivo do desbloqueio (fica registado):",
+    week_reopened: "Semana reaberta — o motivo ficou registado",
+    confirm_close: "Fechar a semana? Os valores ficam bloqueados para edição.",
+    week_closed: "Semana fechada",
+    tag_vale_no_hours: "tem um adiantamento nesta semana, horas ainda não",
+    sem_horas: "sem horas", tag_vales_team: "adiantamentos geridos na Equipa",
+    new_staff_name: "Nova pessoa",
+    toast_week_saved: "Semana guardada", toast_save_failed: "Falha ao guardar: ",
+    confirm_delete_week: "Apagar esta semana?",
+    toast_week_exists: "Essa semana já existe", toast_week_created: "Nova semana criada",
+    pool_lower: "pool",
+    team_h: "Equipa", lbl_week: "Semana", lbl_person: "Pessoa",
+    vale_panel: "Adiantamento (vale)", lbl_amount: "Valor €",
+    lbl_reason_opt: "Motivo (opcional)", ph_reason: "motivo", register: "Registar",
+    new_person: "Nova pessoa", ph_name: "Nome", ph_position: "função",
+    add_to_team: "Adicionar à equipa",
+    active_count: "{n} ativa(s)", archived_count: "{n} arquivada(s)",
+    th_position: "Função", th_vales_week: "Vales sem.", th_vales_total: "Vales total",
+    th_access: "Acesso", pin_ok: "PIN ✓", no_pin: "sem PIN",
+    pin_change: "trocar", pin_give: "dar PIN", pin_clear: "limpar",
+    pin_prompt: "PIN (4+ dígitos) para esta pessoa:",
+    toast_pin_set: "PIN definido", toast_pin_bad: "PIN inválido ou já usado",
+    toast_error: "Erro", toast_pin_cleared: "PIN apagado",
+    toast_reactivated: "Reativada", toast_archived: "Arquivada",
+    vale_max_note_set: "Máximo por adiantamento: {x} (muda em Definições). ",
+    vale_max_note_none: "Sem limite por adiantamento (define um em Definições). ",
+    vale_max_note_rest: "Um vale não precisa de horas nem de motivo — fica logo na tabela da semana.",
+    th_reason: "Motivo", th_value: "Valor", note_default: "adiantamento",
+    week_total: "Total da semana", no_advances: "Sem adiantamentos registados.",
+    toast_vale_deleted: "Adiantamento apagado",
+    vales_week_total: "Adiantamentos desta semana — {x}",
+    week_total_this: "Total desta semana",
+    week_vales_locked_hint: "Semana fechada: os adiantamentos já estão no comprovativo de cada pessoa.",
+    week_vales_hint: "Registam-se em Equipa → Adiantamento, sempre dentro de uma semana.",
+    missing_hours_one: "Faltam horas de 1 pessoa",
+    missing_hours_many: "Faltam horas de {n} pessoas",
+    missing_tail: "Antes de fechar a semana.",
+    the_house: "A casa", lbl_house_name: "Nome da casa", ph_house_name: "Nome da casa",
+    save: "Guardar", lbl_vale_max: "Vale máximo (€)", ph_vale_max: "0 = sem limite",
+    vale_limit_note: "Limite por adiantamento. Os que já existem ficam como estão — isto só trava os novos.",
+    owner_pin: "PIN do dono", lbl_new_pin: "Novo PIN", ph_new_pin: "Novo PIN",
+    lbl_cur_pin: "PIN atual", ph_cur_pin: "atual", change_pin: "Alterar PIN",
+    recent_changes: "Alterações recentes", lbl_lang: "Idioma",
+    venue_saved: "Nome da casa guardado",
+    toast_vale_max_set: "Vale máximo: {x}", toast_vale_max_none: "Sem limite de vale",
+    pin_min: "PIN: mínimo 4 dígitos", toast_pin_changed: "PIN alterado",
+    toast_pin_wrong: "PIN atual errado",
+    no_advance_above: "Sem adiantamento acima de {x}.",
+    no_limit_any: "Sem limite — qualquer valor é aceite.",
+    choose_person_value: "Escolhe pessoa e valor", create_week_first: "Cria uma semana primeiro",
+    max_per_vale: "Máximo por vale: {x}", vale_failed: "Não foi possível registar o vale",
+    vale_added: "Vale {x} → {name}",
+    staff_add_failed: "Não foi possível adicionar — tenta outra vez",
+    name_exists: "Nome já existe", staff_added: "Adicionado {name}",
+    staff_crumb: "TipSplit · equipa", my_tips: "As minhas gorjetas",
+    staff_hours_week: "Horas esta semana", staff_share: "Parte",
+    staff_advances: "Adiantamentos", staff_to_receive: "A receber",
+    staff_no_data: "Semana", staff_no_data_val: "sem dados",
+    staff_worked: "{h} h trabalhadas · {rate}/h",
+    staff_share_hours: "Parte (horas ÷ total)", staff_advances_vales: "Adiantamentos (vales)",
+    staff_payslip: "Comprovativo",
+    staff_payslip_hint: "O comprovativo fica disponível quando a semana fechar.",
+    staff_no_week: "Ainda não há semana aberta.",
+    staff_split_cap: "A divisão desta semana", staff_me: " (eu)", people_many: "{n} pessoas",
+    staff_recon: "Adiantamentos já pagos durante a semana saem do pool: {pool} − {vales} = {net} para pagar agora. Todos veem o mesmo número — é o que torna a divisão difícil de discutir.",
+    staff_my_advances: "Os meus adiantamentos (por semana)",
+    th_date: "Data", th_adv_short: "Adiant.", staff_history: "Histórico",
+      stat_hours: "Horas",
+    stat_last_closed: "Última fechada",
+    active_many: "{n} pessoas ativas",
+    n_people: "{n} pessoas",
+    badge_closed: "fechada",
+    th_hours: "Horas",
+    th_vales_amt: "Vales €",
+    th_net: "Líquido €",
+    th_vales_week: "Vales sem.",
+    th_vales_total: "Vales total",
+    th_adv_short: "Adiant.",
+    staff_due: "A receber",
+    vale_shortfall: "{x} vale acima do ganho (dívida ao pote)",
+    create_week_first: "Cria uma semana primeiro",
+    vale_add_failed: "Não foi possível registar o vale",
+    toast_pin_cleared: "PIN apagado",
+    toast_archived: "Arquivada",
+    toast_staff_added: "Adicionado {name}",
+},
+  en: {
+    grp_weeks: "Weeks", new_week: "+ New week", grp_manage: "Manage",
+    nav_week: "Week", nav_team: "Team", nav_settings: "Settings",
+    logout: "Log out", brand_tips: "tips", annual_excel: "Annual (Excel)",
+    gate_setup_title: "Set a PIN", gate_login_title: "Venue PIN",
+    gate_setup_msg: "4+ digits. This is what stops anyone opening everyone's tips.",
+    gate_login_msg: "Enter the PIN to see the venue's data.",
+    gate_enter: "Enter",
+    gate_rate_limit: "Too many attempts — wait 5 minutes.",
+    gate_wrong: "Wrong PIN.",
+    empty_week: "Pick a week on the left, or create a new one.",
+    no_weeks: "No weeks yet.",
+    stat_current_week: "Current week", stat_pool: "Pool", stat_hours: "Hours",
+    stat_to_pay: "To pay", stat_advances: "Advances", stat_last_closed: "Last closed",
+    dash_vale_warn: "⚠ {n} advance(s) above the week's earnings — owed to the pool.",
+    active_one: "1 active person", active_many: "{n} active people",
+    create_first_week: " · create the first week",
+    week_of: "Week of {date}", badge_closed: "closed", badge_open: "open",
+    badge_locked_opt: " · closed",
+    week_facts: "{n} people · {h} h in total", add_person: "+ Add person",
+    advance_noun: "advance",
+    pool_total: "Pool (total €)", total_hours: "Total hours", total_net: "Total net",
+    check_cap: "Check",
+    th_person: "Person", th_hours: "Hours", th_vales: "Advances €", th_net: "Net €",
+    save_week: "Save week", close_week: "Close week",
+    unlock: "Reopen (with reason)", payslips: "Payslips", cash_sheet: "Cash sheet",
+    week_note: "Each day's hours (Mon–Sun) add up to the person's total. Share = pool × hours ÷ total hours − advances. Net is never negative.",
+    week_locked_note: "Week closed — to fix it, reopen it (with a reason).",
+    unlock_prompt: "Reason for reopening (it gets logged):",
+    week_reopened: "Week reopened — the reason was logged",
+    confirm_close: "Close the week? The amounts become locked for editing.",
+    week_closed: "Week closed",
+    tag_vale_no_hours: "has an advance this week, no hours yet",
+    sem_horas: "no hours", tag_vales_team: "advances are managed in Team",
+    new_staff_name: "New person",
+    toast_week_saved: "Week saved", toast_save_failed: "Save failed: ",
+    confirm_delete_week: "Delete this week?",
+    toast_week_exists: "That week already exists", toast_week_created: "New week created",
+    pool_lower: "pool",
+    team_h: "Team", lbl_week: "Week", lbl_person: "Person",
+    vale_panel: "Advance", lbl_amount: "Amount €",
+    lbl_reason_opt: "Reason (optional)", ph_reason: "reason", register: "Record",
+    new_person: "New person", ph_name: "Name", ph_position: "role",
+    add_to_team: "Add to team",
+    active_count: "{n} active", archived_count: "{n} archived",
+    th_position: "Role", th_vales_week: "Advances wk.", th_vales_total: "Advances total",
+    th_access: "Access", pin_ok: "PIN ✓", no_pin: "no PIN",
+    pin_change: "change", pin_give: "set PIN", pin_clear: "clear",
+    pin_prompt: "PIN (4+ digits) for this person:",
+    toast_pin_set: "PIN set", toast_pin_bad: "Invalid PIN or already in use",
+    toast_error: "Error", toast_pin_cleared: "PIN cleared",
+    toast_reactivated: "Reactivated", toast_archived: "Archived",
+    vale_max_note_set: "Maximum per advance: {x} (change it in Settings). ",
+    vale_max_note_none: "No limit per advance (set one in Settings). ",
+    vale_max_note_rest: "An advance needs no hours and no reason — it goes straight into the week's table.",
+    th_reason: "Reason", th_value: "Amount", note_default: "advance",
+    week_total: "Week total", no_advances: "No advances recorded.",
+    toast_vale_deleted: "Advance deleted",
+    vales_week_total: "This week's advances — {x}",
+    week_total_this: "This week's total",
+    week_vales_locked_hint: "Week closed: the advances are already on each person's payslip.",
+    week_vales_hint: "They're recorded in Team → Advance, always within a week.",
+    missing_hours_one: "Missing hours for 1 person",
+    missing_hours_many: "Missing hours for {n} people",
+    missing_tail: "Before closing the week.",
+    the_house: "The venue", lbl_house_name: "Venue name", ph_house_name: "Venue name",
+    save: "Save", lbl_vale_max: "Maximum advance (€)", ph_vale_max: "0 = no limit",
+    vale_limit_note: "Limit per advance. Existing ones stay as they are — this only blocks new ones.",
+    owner_pin: "Owner PIN", lbl_new_pin: "New PIN", ph_new_pin: "New PIN",
+    lbl_cur_pin: "Current PIN", ph_cur_pin: "current", change_pin: "Change PIN",
+    recent_changes: "Recent changes", lbl_lang: "Language",
+    venue_saved: "Venue name saved",
+    toast_vale_max_set: "Maximum advance: {x}", toast_vale_max_none: "No advance limit",
+    pin_min: "PIN: at least 4 digits", toast_pin_changed: "PIN changed",
+    toast_pin_wrong: "Current PIN is wrong",
+    no_advance_above: "No advance above {x}.",
+    no_limit_any: "No limit — any amount is accepted.",
+    choose_person_value: "Pick a person and an amount", create_week_first: "Create a week first",
+    max_per_vale: "Maximum per advance: {x}", vale_failed: "Couldn't record the advance",
+    vale_added: "Advance {x} → {name}",
+    staff_add_failed: "Couldn't add — try again",
+    name_exists: "Name already exists", staff_added: "Added {name}",
+    staff_crumb: "TipSplit · team", my_tips: "My tips",
+    staff_hours_week: "Hours this week", staff_share: "Share",
+    staff_advances: "Advances", staff_to_receive: "To receive",
+    staff_no_data: "Week", staff_no_data_val: "no data",
+    staff_worked: "{h} h worked · {rate}/h",
+    staff_share_hours: "Share (hours ÷ total)", staff_advances_vales: "Advances",
+    staff_payslip: "Payslip",
+    staff_payslip_hint: "The payslip becomes available once the week is closed.",
+    staff_no_week: "No open week yet.",
+    staff_split_cap: "This week's split", staff_me: " (me)", people_many: "{n} people",
+    staff_recon: "Advances already paid during the week come out of the pool: {pool} − {vales} = {net} to pay now. Everyone sees the same number — that's what makes the split hard to argue with.",
+    staff_my_advances: "My advances (per week)",
+    th_date: "Date", th_adv_short: "Adv.", staff_history: "History",
+      stat_hours: "Hours",
+    stat_last_closed: "Last closed",
+    active_many: "{n} people active",
+    n_people: "{n} people",
+    badge_closed: "closed",
+    th_hours: "Hours",
+    th_vales_amt: "Advances €",
+    th_net: "Net €",
+    th_vales_week: "Advances wk",
+    th_vales_total: "Advances total",
+    th_adv_short: "Adv.",
+    staff_due: "To receive",
+    vale_shortfall: "{x} advance above this week's share (owed to the pot)",
+    create_week_first: "Create a week first",
+    vale_add_failed: "Could not record the advance",
+    toast_pin_cleared: "PIN cleared",
+    toast_archived: "Archived",
+    toast_staff_added: "Added {name}",
+},
+};
+
+function t(key, vars) {
+  const s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.pt[key] ?? key;
+  return vars ? s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? "")) : s;
+}
+
+// Static markup carries data-t / data-t-placeholder / data-t-title; this
+// repaints every one of them in the current language.
+function applyLang() {
+  document.documentElement.lang = LANG === "en" ? "en" : "pt-PT";
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll("[data-t-placeholder]").forEach(el => { el.placeholder = t(el.dataset.tPlaceholder); });
+  document.querySelectorAll("[data-t-title]").forEach(el => { el.title = t(el.dataset.tTitle); });
+}
 
 async function api(url, method = "GET", body = null) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -434,6 +692,8 @@ async function boot() {
   if (st.role === "staff") return startStaff(st.name);  // the team's own page
   $("#gate").classList.add("hidden");
   settingsCache = await api("/api/settings");
+  LANG = settingsCache.lang === "en" ? "en" : "pt";   // survives a reload
+  applyLang();
   loadWeeks(false);
   showView("semana");
 }
@@ -441,10 +701,11 @@ async function boot() {
 async function loadSettings() {
   settingsCache = await api("/api/settings");
   $("#venueName").value = settingsCache.venue_name || "";
+  $("#langSel").value = LANG;
   $("#valeMax").value = settingsCache.vale_max ? settingsCache.vale_max : "";
   $("#valeMaxHint").textContent = settingsCache.vale_max
-    ? `Sem adiantamento acima de ${eur(settingsCache.vale_max)}.`
-    : "Sem limite — qualquer valor é aceite.";
+    ? t("vale_max_note_set", { x: eur(settingsCache.vale_max) })
+    : t("no_limit_any");
   const rows = await api("/api/audit?limit=8");
   $("#auditList").innerHTML = rows.length
     ? rows.map(r => `<div>${esc(r.ts.slice(5, 16))} · ${esc(r.action)} ${esc(r.detail)}</div>`).join("")
@@ -522,7 +783,7 @@ function applySplit(w, p) {
     statCheck.textContent = "⚠"; statCheck.style.color = "var(--warn)";
   }
   if (p.vale_shortfall > 0.004) {
-    check.textContent += ` · ⚠ ${eur(p.vale_shortfall)} vale acima do ganho (dívida ao pote)`;
+    check.textContent += ` · ⚠ ${t("vale_shortfall", { x: eur(p.vale_shortfall) })}`;
     check.className = "check bad";
   }
 }
@@ -574,20 +835,20 @@ async function loadDash() {
   const w = d.week;
   const cells = [];
   if (w) {
-    cells.push(stat("Semana atual", fmtDate(w.start_date), true));
-    cells.push(stat("Pool", eur(w.pool_eur)));
-    cells.push(stat("Horas", String(w.total_hours)));
-    cells.push(stat("A pagar", eur(w.net_total)));
-    cells.push(stat("Adiantamentos", eur(w.vales_total)));
+    cells.push(stat(t("stat_current_week"), fmtDate(w.start_date), true));
+    cells.push(stat(t("stat_pool"), eur(w.pool_eur)));
+    cells.push(stat(t("stat_hours"), String(w.total_hours)));
+    cells.push(stat(t("stat_to_pay"), eur(w.net_total)));
+    cells.push(stat(t("staff_advances"), eur(w.vales_total)));
   } else {
-    cells.push(stat("Semana atual", "—", true));
+    cells.push(stat(t("stat_current_week"), "—", true));
   }
-  if (d.last_closed) cells.push(stat("Última fechada", eur(d.last_closed.net_total)));
+  if (d.last_closed) cells.push(stat(t("stat_last_closed"), eur(d.last_closed.net_total)));
   $("#dash").innerHTML = cells.join("");
   const n = d.vale_warnings.length;
   $("#dashNote").textContent = n
-    ? `⚠ ${n} adiantamento(s) acima do ganho da semana — dívida ao pote.`
-    : `${d.staff_active === 1 ? "1 pessoa ativa" : d.staff_active + " pessoas ativas"}${w ? "" : " · cria a primeira semana"}`;
+    ? t("dash_vale_warn", { n })
+    : `${d.staff_active === 1 ? t("active_one") : t("active_many", { n: d.staff_active })}${w ? "" : t("create_first_week")}`;
 }
 
 async function refreshSidebar() {
@@ -635,20 +896,20 @@ async function openWeek(id) {
   d.innerHTML = `
     <div class="week-header">
       <div>
-        <h2>Semana de ${fmtDate(w.start_date)}${locked ? ' <span class="badge">fechada</span>' : ""}</h2>
-        <div class="week-facts">${w.entries.length} pessoas · ${w.total_hours} h no total</div>
+        <h2>${t("week_of", { date: fmtDate(w.start_date) })}${locked ? ` <span class="badge">${t("badge_closed")}</span>` : ""}</h2>
+        <div class="week-facts">${t("week_facts", { n: w.entries.length, h: w.total_hours })}</div>
       </div>
       <div class="row">
-        ${locked ? "" : '<button class="ghost" id="addRowBtn">+ Adicionar pessoa</button>'}
+        ${locked ? "" : `<button class="ghost" id="addRowBtn">${t("add_person")}</button>`}
       </div>
     </div>
 
     <div class="stat-strip">
-      <div class="stat"><div class="cap">Pool (total €)</div>
+      <div class="stat"><div class="cap">${t("pool_total")}</div>
         <input type="number" id="poolInput" min="0" step="0.01" value="${Number(w.pool_eur).toFixed(2)}"${locked ? " disabled" : ""}></div>
-      <div class="stat"><div class="cap">Total de horas</div><div class="num" id="statHours">${w.total_hours}</div></div>
-      <div class="stat"><div class="cap">Total líquido</div><div class="num" id="statSum">—</div></div>
-      <div class="stat"><div class="cap">Conferência</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
+      <div class="stat"><div class="cap">${t("th_hours")}</div><div class="num" id="statHours">${w.total_hours}</div></div>
+      <div class="stat"><div class="cap">${t("th_net")}</div><div class="num" id="statSum">—</div></div>
+      <div class="stat"><div class="cap">${t("check_cap")}</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
     </div>
 
     <div class="statement" id="statement">${esc(w.statement || "")}</div>
@@ -660,17 +921,17 @@ async function openWeek(id) {
       <thead><tr>
         <th>Pessoa</th>
         ${DAY_LABELS.map(([, lbl]) => `<th class="num">${lbl}</th>`).join("")}
-        <th class="num">Horas</th><th class="num">Vales €</th>
-        <th class="num">Líquido €</th>
+        <th class="num">${t("th_hours")}</th><th class="num">${t("th_vales_amt")}</th>
+        <th class="num">${t("th_net")}</th>
       </tr></thead>
       <tbody id="gridBody"></tbody>
     </table>
     </div>
 
     <div class="row" style="margin-top: 16px;">
-      ${locked ? "" : '<button id="saveBtn">Guardar semana</button>'}
-      ${locked ? "" : '<button class="ghost" id="lockBtn">Fechar semana</button>'}
-      ${locked ? '<button class="ghost" id="unlockBtn">Desbloquear (com motivo)</button>' : ""}
+      ${locked ? "" : `<button id="saveBtn">${t("save_week")}</button>`}
+      ${locked ? "" : `<button class="ghost" id="lockBtn">${t("close_week")}</button>`}
+      ${locked ? `<button class="ghost" id="unlockBtn">${t("unlock")}</button>` : ""}
       <span class="check" id="checkMsg"></span>
     </div>
     <div class="row" style="margin-top: 10px;">
@@ -696,10 +957,10 @@ async function openWeek(id) {
     $("#lockBtn").addEventListener("click", () => lockWeek(w));
   } else {
     $("#unlockBtn").addEventListener("click", async () => {
-      const reason = prompt("Motivo do desbloqueio (fica registado):");
+      const reason = prompt(t("unlock_prompt"));
       if (!reason || !reason.trim()) return;
       await api(`/api/weeks/${w.id}/unlock`, "POST", { reason: reason.trim() });
-      toast("Semana reaberta — o motivo ficou registado");
+      toast(t("week_reopened"));
       openWeek(w.id);
       loadSettings();
     });
@@ -708,9 +969,9 @@ async function openWeek(id) {
 }
 
 async function lockWeek(w) {
-  if (!confirm("Fechar a semana? Os valores ficam bloqueados para edição.")) return;
+  if (!confirm(t("confirm_close"))) return;
   await api(`/api/weeks/${w.id}/lock`, "POST");
-  toast("Semana fechada");
+  toast(t("week_closed"));
   openWeek(w.id);
 }
 
@@ -724,7 +985,7 @@ function renderGrid(w) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="staff-name">${esc(e.name)}${e.derived
-        ? ' <span class="hint" title="tem um adiantamento nesta semana, horas ainda não">sem horas</span>' : ""}</td>
+        ? ` <span class="hint" title="${t("tag_vale_no_hours")}">${t("sem_horas")}</span>` : ""}</td>
       ${DAY_LABELS.map(([k]) => `
         <td class="num"><input type="number" data-i="${idx}" data-k="${k}"
           value="${e[k] || 0}" min="0" step="0.5" style="width:64px"${locked ? " disabled" : ""}></td>`).join("")}
@@ -805,12 +1066,12 @@ $("#addStaffBtn").addEventListener("click", async () => {
     s = await api("/api/staff", "POST",
                   { name, position: $("#staffPosition").value.trim() });
   } catch (e) {
-    toast("Não foi possível adicionar — tenta outra vez");
+    toast(t("staff_add_failed"));
     return;
   }
-  if (!s) { toast("Nome já existe"); return; }
+  if (!s) { toast(t("name_exists")); return; }
   $("#staffName").value = ""; $("#staffPosition").value = "";
-  toast("Adicionado " + s.name);
+  toast(t("toast_staff_added", { name: s.name }));
   await loadTeam();                  // the roster + the person/vale selects
   await refreshSidebar();
   if (currentWeek) openWeek(currentWeek);
@@ -820,16 +1081,16 @@ $("#addValeBtn").addEventListener("click", async () => {
   const staff_id = parseInt($("#valeStaff").value);
   const amount = parseFloat($("#valeAmount").value);
   const week_id = parseInt($("#valeWeek").value) || null;
-  if (!staff_id || !(amount > 0)) { toast("Escolhe pessoa e valor"); return; }
-  if (!week_id) { toast("Cria uma semana primeiro"); return; }
+  if (!staff_id || !(amount > 0)) { toast(t("choose_person_value")); return; }
+  if (!week_id) { toast(t("create_week_first")); return; }
   const cap = settingsCache.vale_max || 0;
-  if (cap > 0 && amount > cap) { toast(`Máximo por vale: ${eur(cap)}`); return; }
+  if (cap > 0 && amount > cap) { toast(t("max_per_vale", { x: eur(cap) })); return; }
   let row;
   try {
     row = await api("/api/vales", "POST",
       { staff_id, amount, note: $("#valeNote").value.trim(), week_id });
   } catch (e) {
-    toast(e.message.includes("máximo") ? e.message : "Não foi possível registar o vale");
+    toast(e.message.includes("máximo") ? e.message : t("vale_add_failed"));
     return;
   }
   $("#valeAmount").value = ""; $("#valeNote").value = "";
@@ -843,7 +1104,7 @@ $("#gatePin").addEventListener("keydown", (e) => { if (e.key === "Enter") submit
 
 $("#saveVenueBtn").addEventListener("click", async () => {
   await api("/api/settings", "PUT", { venue_name: $("#venueName").value.trim() });
-  toast("Nome da casa guardado");
+  toast(t("venue_saved"));
   loadSettings();
 });
 
@@ -851,8 +1112,19 @@ $("#saveValeMaxBtn").addEventListener("click", async () => {
   const raw = $("#valeMax").value.trim().replace(",", ".");
   const val = raw === "" ? 0 : Math.max(0, parseFloat(raw) || 0);
   settingsCache = await api("/api/settings", "PUT", { vale_max: val });
-  toast(val ? `Vale máximo: ${eur(val)}` : "Sem limite de vale");
+  toast(val ? `${t("max_per_vale")} ${eur(val)}` : t("no_limit_any"));
   loadSettings();
+});
+
+$("#langSel").addEventListener("change", async () => {
+  const lang = $("#langSel").value === "en" ? "en" : "pt";
+  settingsCache = await api("/api/settings", "PUT", { lang });
+  LANG = lang;
+  applyLang();
+  const active = ["semana", "equipa", "definicoes"]
+    .find(v => $("#view-" + v).classList.contains("active")) || "semana";
+  showView(active);                       // titles + the visible panel, in the new language
+  if (currentWeek && active === "semana") openWeek(currentWeek);
 });
 
 $("#savePinBtn").addEventListener("click", async () => {
@@ -880,8 +1152,8 @@ function showView(name) {
     v.classList.toggle("active", v.id === "view-" + name));
   document.querySelectorAll("[data-view]").forEach(b =>
     b.classList.toggle("active", b.dataset.view === name));
-  const titles = { semana: "Semana", equipa: "Equipa", definicoes: "Definições" };
-  $("#pageTitle").textContent = titles[name] || "Semana";
+  const titles = { semana: t("nav_week"), equipa: t("nav_team"), definicoes: t("nav_settings") };
+  $("#pageTitle").textContent = titles[name] || t("nav_week");
   if (name === "equipa") { loadTeam(); }
   if (name === "definicoes") { loadSettings(); }
 }
@@ -908,8 +1180,8 @@ async function _loadTeam() {
   $("#teamHint").textContent = `${active.length} ativa(s) · ${team.staff.length - active.length} arquivada(s)`;
   $("#teamPanel").innerHTML = `
     <div style="overflow-x:auto"><table>
-      <tr><th>Pessoa</th><th>Função</th><th class="num">Vales sem.</th>
-          <th class="num">Vales total</th><th>Acesso</th><th></th></tr>
+      <tr><th>${t("th_person")}</th><th>${t("th_position")}</th><th class="num">${t("th_vales_week")}</th>
+          <th class="num">${t("th_vales_total")}</th><th>${t("th_access")}</th><th></th></tr>
       ${team.staff.map(s => `
         <tr${s.archived ? ' style="opacity:.45"' : ""}>
           <td class="staff-name">${esc(s.name)}</td>
@@ -933,19 +1205,19 @@ async function _loadTeam() {
       if (!pin) return;
       try {
         await api(`/api/staff/${b.dataset.pin}/pin`, "POST", { pin: pin.trim() });
-        toast("PIN definido"); loadTeam();
+        toast(t("toast_pin_set")); loadTeam();
       } catch (e) { toast(e.status === 400 ? "PIN inválido ou já usado" : "Erro"); }
     }));
   $("#teamPanel").querySelectorAll("[data-clearpin]").forEach(b =>
     b.addEventListener("click", async () => {
       await api(`/api/staff/${b.dataset.clearpin}/pin`, "POST", { pin: "" });
-      toast("PIN apagado"); loadTeam();
+      toast(t("toast_pin_cleared")); loadTeam();
     }));
   $("#teamPanel").querySelectorAll("[data-arch]").forEach(b =>
     b.addEventListener("click", async () => {
       const back = b.dataset.archived === "1";
       await api(`/api/staff/${b.dataset.arch}/archive?archived=${back ? "false" : "true"}`, "POST");
-      toast(back ? "Reativada" : "Arquivada"); loadTeam(); loadWeeks(false);
+      toast(back ? t("toast_reactivated") : t("toast_archived")); loadTeam(); loadWeeks(false);
     }));
 
   // vale form: active people + the week the advance belongs to (default: the open one)
@@ -962,27 +1234,26 @@ async function _loadTeam() {
   if (keepWeek && [...$("#valeWeek").options].some(o => o.value === keepWeek))
     $("#valeWeek").value = keepWeek;
   $("#valeMaxNote").textContent = (settingsCache.vale_max
-    ? `Máximo por adiantamento: ${eur(settingsCache.vale_max)} (muda em Definições). `
-    : "Sem limite por adiantamento (define um em Definições). ")
-    + "Um vale não precisa de horas nem de motivo — fica logo na tabela da semana.";
+    ? t("vale_max_note_set", { x: eur(settingsCache.vale_max) })
+    : t("vale_max_note_none")) + t("vale_max_note_rest");
   $("#valeList").innerHTML = (await api("/api/vales/grouped")).map(g => `
     <div style="margin-top:12px">
-      <div class="cap">Semana de ${fmtDate(g.start_date)}${g.status === "locked" ? " · fechada" : ""}
+      <div class="cap">${t("week_of", { date: fmtDate(g.start_date) })}${g.status === "locked" ? t("badge_locked_opt") : ""}
         — ${eur(g.total)}</div>
       <table>
-        <tr><th>Pessoa</th><th>Motivo</th><th class="num">Valor</th><th></th></tr>
+        <tr><th>${t("th_person")}</th><th>${t("th_reason")}</th><th class="num">${t("th_value")}</th><th></th></tr>
         ${g.rows.map(v => `<tr><td class="staff-name">${esc(v.name || "")}</td>
-          <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+          <td style="color:var(--muted)">${esc(v.note || t("advance_noun"))}</td>
           <td class="num net-share">${eur(v.amount)}</td>
           <td class="num"><button class="ghost pinbtn" data-delvale="${v.id}" title="apagar">✕</button></td></tr>`).join("")}
-        <tr class="total"><td colspan="2">Total da semana</td>
+        <tr class="total"><td colspan="2">${t("week_total")}</td>
           <td class="num">${eur(g.total)}</td><td></td></tr>
       </table>
     </div>`).join("") || '<div class="hint">Sem adiantamentos registados.</div>';
   $("#valeList").querySelectorAll("[data-delvale]").forEach(b =>
     b.addEventListener("click", async () => {
       await api("/api/vales/" + b.dataset.delvale, "DELETE");
-      toast("Adiantamento apagado");
+      toast(t("toast_vale_deleted"));
       loadTeam(); loadWeeks(false);
       if (currentWeek) openWeek(currentWeek);
     }));
@@ -994,8 +1265,8 @@ function renderMissing(w) {
   const missing = staffCache.filter(s => !s.archived && !got.has(s.id));
   $("#missing").innerHTML = !missing.length ? "" : `
     <div class="statement" style="border-left-color:var(--warn);background:rgba(224,184,76,.10);margin-top:14px">
-      <b style="color:var(--warn)">Faltam horas de ${missing.length} pessoa${missing.length > 1 ? "s" : ""}</b>
-      — ${missing.map(s => esc(s.name)).join(", ")}. Antes de fechar a semana.
+      <b style="color:var(--warn)">${missing.length === 1 ? t("missing_hours_one") : t("missing_hours_many", { n: missing.length })}</b>
+      — ${missing.map(s => esc(s.name)).join(", ")}. ${t("missing_tail")}
     </div>`;
 }
 
@@ -1005,22 +1276,22 @@ async function renderWeekVales(w) {
   const total = rows.reduce((a, v) => a + v.amount, 0);
   const locked = w.status === "locked";
   $("#weekVales").innerHTML = !rows.length ? "" : `
-    <div class="cap" style="margin-top:14px">Adiantamentos desta semana — ${eur(total)}</div>
+    <div class="cap" style="margin-top:14px">${t("vales_week_total", { x: eur(total) })}</div>
     <table>
-      <tr><th>Pessoa</th><th>Motivo</th><th class="num">Valor</th><th></th></tr>
+      <tr><th>${t("th_person")}</th><th>${t("th_reason")}</th><th class="num">${t("th_value")}</th><th></th></tr>
       ${rows.map(v => `<tr><td class="staff-name">${esc(v.name || "")}</td>
-        <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+        <td style="color:var(--muted)">${esc(v.note || t("advance_noun"))}</td>
         <td class="num net-share">${eur(v.amount)}</td>
         <td class="num">${locked ? "" : `<button class="ghost pinbtn" data-delvale3="${v.id}" title="apagar">✕</button>`}</td></tr>`).join("")}
-      <tr class="total"><td colspan="2">Total desta semana</td><td class="num">${eur(total)}</td><td></td></tr>
+      <tr class="total"><td colspan="2">${t("week_total_this")}</td><td class="num">${eur(total)}</td><td></td></tr>
     </table>
     <div class="hint">${locked
-      ? "Semana fechada: os adiantamentos já estão no comprovativo de cada pessoa."
-      : "Registam-se em Equipa → Adiantamento, sempre dentro de uma semana."}</div>`;
+      ? t("week_vales_locked_hint")
+      : t("week_vales_hint")}</div>`;
   $("#weekVales").querySelectorAll("[data-delvale3]").forEach(b =>
     b.addEventListener("click", async () => {
       await api("/api/vales/" + b.dataset.delvale3, "DELETE");
-      toast("Adiantamento apagado");
+      toast(t("toast_vale_deleted"));
       loadWeeks(false);
       if (currentWeek) openWeek(currentWeek);
     }));
@@ -1033,11 +1304,11 @@ async function startStaff(name) {
   const d = await api("/api/me");
   const w = d.week, mine = d.mine || { hours: 0, gross: 0, vales: 0, net: 0 };
   const cards = w ? [
-    ["Horas esta semana", `${mine.hours || 0}`],
-    ["Parte", eur(mine.gross || 0)],
-    ["Adiantamentos", eur(mine.vales || 0)],
-    ["A receber", eur(mine.net || 0)],
-  ] : [["Semana", "sem dados"]];
+    ["staff_hours_week", `${mine.hours || 0}`],
+    [t("staff_share_hours"), eur(mine.gross || 0)],
+    ["staff_advances", eur(mine.vales || 0)],
+    ["staff_due", eur(mine.net || 0)],
+  ] : [[t("staff_no_data"), t("staff_no_data_val")]];
 
   $("#staffBody").innerHTML = `
     <div class="stat-strip">${cards.map(([c, n]) =>
@@ -1046,13 +1317,13 @@ async function startStaff(name) {
     ${w ? `
     <div class="panel" style="margin-top:12px">
       <div class="week-header">
-        <div><h2>Semana de ${fmtDate(w.start_date)}</h2>
+        <div><h2>${t("week_of", { date: fmtDate(w.start_date) })}</h2>
           <div class="week-facts">${mine.hours || 0} h trabalhadas · ${eur(w.rate_per_hour)}/h</div></div>
         <span class="badge">${w.status === "locked" ? "fechada" : "aberta"}</span>
       </div>
       <table>
         <tr><th>Horas</th><td class="num">${mine.hours || 0} h</td></tr>
-        <tr><th>Parte (horas ÷ total)</th><td class="num">${eur(mine.gross || 0)}</td></tr>
+        <tr><th>${t("staff_share_hours")}</th><td class="num">${eur(mine.gross || 0)}</td></tr>
         <tr><th>Adiantamentos (vales)</th><td class="num">− ${eur(mine.vales || 0)}</td></tr>
         <tr class="total"><td>A receber</td><td class="num net-share">${eur(mine.net || 0)}</td></tr>
       </table>
@@ -1060,7 +1331,7 @@ async function startStaff(name) {
       ${w.status === "locked"
         ? `<a class="btn" href="/print/me/${w.id}" target="_blank" rel="noopener">Comprovativo</a>`
         : '<div class="hint">O comprovativo fica disponível quando a semana fechar.</div>'}
-    </div>` : '<div class="panel" style="margin-top:12px"><div class="hint">Ainda não há semana aberta.</div></div>'}
+    </div>` : '<div class="panel" style="margin-top:12px"><div class="hint">${t("staff_no_week")}</div></div>'}
 
     ${d.team.length ? `
     <div class="panel" style="margin-top:12px">
@@ -1095,9 +1366,9 @@ async function startStaff(name) {
       ${d.vales.map(g => `
         <div style="margin-top:8px">
           <div class="cap">Semana de ${fmtDate(g.start_date)} — ${eur(g.total)}</div>
-          <table><tr><th>Data</th><th>Motivo</th><th class="num">Valor</th></tr>
+          <table><tr><th>${t("th_date")}</th><th>${t("th_reason")}</th><th class="num">${t("th_value")}</th></tr>
             ${g.rows.map(v => `<tr><td>${esc((v.date || "").slice(0, 10))}</td>
-              <td style="color:var(--muted)">${esc(v.note || "adiantamento")}</td>
+              <td style="color:var(--muted)">${esc(v.note || t("advance_noun"))}</td>
               <td class="num">${eur(v.amount)}</td></tr>`).join("")}
           </table>
         </div>`).join("")}

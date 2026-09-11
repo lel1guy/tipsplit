@@ -60,6 +60,16 @@ class ValeIn(BaseModel):
     date: str | None = None
 
 
+def _lang_setting() -> str:
+    """The venue's language, as stored in Definições."""
+    return "en" if (db.get_setting("lang", "pt") or "pt").lower().startswith("en") else "pt"
+
+
+def _msg(pt: str, en: str) -> str:
+    """User-facing API messages follow the same setting as the interface."""
+    return en if _lang_setting() == "en" else pt
+
+
 def _lang(lang: str) -> str:
     return "pt" if (lang or "pt").lower().startswith("pt") else "en"
 
@@ -99,14 +109,14 @@ def list_staff(include_archived: bool = True):
 def create_staff(s: StaffIn):
     name = s.name.strip()
     if not name:
-        raise HTTPException(400, "Name needed")
+        raise HTTPException(400, _msg("Falta o nome", "Name needed"))
     return db.create_staff(name, s.position.strip())
 
 @app.post("/api/staff/{staff_id}/archive")
 def archive_staff(staff_id: int, archived: bool = True):
     out = db.archive_staff(staff_id, archived)
     if out is None:
-        raise HTTPException(404, "Staff not found")
+        raise HTTPException(404, _msg("Pessoa não encontrada", "Staff not found"))
     db.audit("staff.arquivar" if archived else "staff.reativar", f"staff={staff_id}")
     return out
 
@@ -114,7 +124,7 @@ def archive_staff(staff_id: int, archived: bool = True):
 def delete_staff(staff_id: int):
     ok = db.delete_staff(staff_id)
     if not ok:
-        raise HTTPException(400, "Staff has history — archive instead")
+        raise HTTPException(400, _msg("Tem histórico — arquive em vez de apagar", "Has history — archive instead"))
     return {"ok": True}
 
 
@@ -133,7 +143,7 @@ def create_vale(v: ValeIn):
     except ValueError as e:
         raise HTTPException(400, f"Semana inválida: {e}")
     if row is None:
-        raise HTTPException(400, "Valor tem de ser positivo e a pessoa tem de existir")
+        raise HTTPException(400, _msg("Valor tem de ser positivo e a pessoa tem de existir", "Amount must be positive and the person must exist"))
     db.audit("vale.add", f"{row['name']} {row['amount']}€ semana={row['week_id']}")
     return row
 
@@ -206,7 +216,7 @@ def save_week(week_id: int, data: WeekSaveIn):
     try:
         out = db.save_week(week_id, data.pool_eur, [e.model_dump() for e in data.entries])
     except PermissionError:
-        raise HTTPException(403, "Week is locked — unlock it first")
+        raise HTTPException(403, _msg("Semana fechada — desbloqueie primeiro", "Week is locked — unlock it first"))
     db.audit("week.guardar", f"semana={week_id} pool={data.pool_eur} linhas={len(data.entries)}")
     return out
 
@@ -244,7 +254,7 @@ def unlock_week(week_id: int, u: UnlockIn):
     try:
         out = db.unlock_week(week_id, u.reason)
     except ValueError:
-        raise HTTPException(400, "Motivo obrigatório")
+        raise HTTPException(400, _msg("Motivo obrigatório", "A reason is required"))
     if out is None:
         raise HTTPException(404, "Week not found")
     return out
@@ -261,7 +271,7 @@ def _locked_week(week_id: int):
     if not wk:
         raise HTTPException(404, "Week not found")
     if wk["status"] != "locked":
-        raise HTTPException(409, "Lock the week first")
+        raise HTTPException(409, _msg("Feche a semana primeiro", "Lock the week first"))
     return wk
 
 
@@ -272,12 +282,14 @@ def _download(body, media_type: str, filename: str):
 
 @app.get("/print/payslips/{week_id}", response_class=HTMLResponse)
 def print_payslips(week_id: int):
-    return exporters.payslips_html(_locked_week(week_id), db.get_setting("venue_name"))
+    return exporters.payslips_html(_locked_week(week_id), db.get_setting("venue_name"),
+                                   _lang_setting())
 
 
 @app.get("/print/cashsheet/{week_id}", response_class=HTMLResponse)
 def print_cashsheet(week_id: int):
-    return exporters.cashsheet_html(_locked_week(week_id), db.get_setting("venue_name"))
+    return exporters.cashsheet_html(_locked_week(week_id), db.get_setting("venue_name"),
+                                    _lang_setting())
 
 
 @app.get("/api/export/week/{week_id}")
@@ -484,7 +496,7 @@ def print_my_payslip(week_id: int, request: Request):
     if not mine:
         raise HTTPException(404, "Sem horas nesta semana")
     return exporters.payslips_html(dict(wk, entries=mine),
-                                   db.get_setting("venue_name"))
+                                   db.get_setting("venue_name"), _lang_setting())
 
 
 @app.post("/api/staff/{staff_id}/pin")

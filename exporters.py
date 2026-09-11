@@ -149,40 +149,80 @@ def _euros(v) -> str:
     return f"{float(v):,.2f}".replace(",", "\u00a0").replace(".", ",").replace("\u00a0", ".") + " €"
 
 
-def _slip(week: dict, e: dict, venue: str) -> str:
+L = {
+    "pt": {
+        "payslip": "comprovativo de gorjetas", "week_of": "Semana de",
+        "hours_worked": "Horas trabalhadas", "share": "Parte",
+        "advances": "Adiantamentos (vales)", "to_receive": "A receber",
+        "all_together": "com todos", "rule_full":
+            "Regra: horas ÷ total de horas. Nenhuma parte fica com a casa.",
+        "rule": "Regra: horas ÷ total de horas.", "signature": "Assinatura",
+        "date": "Data", "cashsheet": "folha de caixa", "people": "pessoas",
+        "paid_advances": "vales já pagos", "person": "Pessoa", "gross": "Bruto",
+        "adv_short": "Adiant.", "to_pay": "A pagar", "paid": "Pago",
+        "cash_out": "Dinheiro a tirar da caixa",
+        "nothing": "Sem horas nem adiantamentos nesta semana.",
+        "your_share": "a vossa parte", "average": "média", "tips": "Gorjetas",
+    },
+    "en": {
+        "payslip": "tips payslip", "week_of": "Week of",
+        "hours_worked": "Hours worked", "share": "Share",
+        "advances": "Advances (vales)", "to_receive": "To receive",
+        "all_together": "all together", "rule_full":
+            "Rule: hours ÷ total hours. No part stays with the house.",
+        "rule": "Rule: hours ÷ total hours.", "signature": "Signature",
+        "date": "Date", "cashsheet": "cash sheet", "people": "people",
+        "paid_advances": "advances already paid", "person": "Person",
+        "gross": "Gross", "adv_short": "Adv.", "to_pay": "To pay",
+        "paid": "Paid", "cash_out": "Cash out of the till",
+        "nothing": "No hours or advances this week.",
+        "your_share": "your share", "average": "average", "tips": "Tips",
+    },
+}
+
+
+def _L(lang: str) -> dict:
+    """Portuguese unless the venue asked for English."""
+    return L["en"] if (lang or "pt").lower().startswith("en") else L["pt"]
+
+
+def _slip(week: dict, e: dict, venue: str, lang: str = "pt") -> str:
     sid = e["staff_id"]
     gross = week["gross_shares"].get(sid, 0.0)
     vale = e["vales"]
     net = week["shares"].get(sid, 0.0)
     rate = week["rate_per_hour"]
+    T = _L(lang)
     return f"""<div class="slip">
-  <h1>{escape(venue or "Gorjetas")} — comprovativo de gorjetas</h1>
-  <div class="sub">Semana de {week["start_date"]} · {escape(e["name"])}
+  <h1>{escape(venue or T["tips"])} — {T["payslip"]}</h1>
+  <div class="sub">{T["week_of"]} {week["start_date"]} · {escape(e["name"])}
     {("· " + escape(e["position"])) if e.get("position") else ""}</div>
   <table>
-    <tr><th>Horas trabalhadas</th><td class="num">{e["hours"]:g} h</td></tr>
-    <tr><th>Parte ({e["hours"]:g} h ÷ {week["total_hours"]:g} h)</th>
+    <tr><th>{T["hours_worked"]}</th><td class="num">{e["hours"]:g} h</td></tr>
+    <tr><th>{T["share"]} ({e["hours"]:g} h ÷ {week["total_hours"]:g} h)</th>
       <td class="num">{_euros(gross)}</td></tr>
-    <tr><th>Adiantamentos (vales)</th><td class="num">− {_euros(vale)}</td></tr>
-    <tr class="total"><td>A receber</td><td class="num">{_euros(net)}</td></tr>
+    <tr><th>{T["advances"]}</th><td class="num">− {_euros(vale)}</td></tr>
+    <tr class="total"><td>{T["to_receive"]}</td><td class="num">{_euros(net)}</td></tr>
   </table>
   <div class="statement">{_euros(week["pool_eur"])} × {e["hours"]:g} h ÷
     {week["total_hours"]:g} h = {_euros(gross)}
-    (com todos: {_euros(week["pool_eur"])} ÷ {week["total_hours"]:g} h = {_euros(rate)}/h).
-    Regra: horas ÷ total de horas. Nenhuma parte fica com a casa.</div>
-  <div class="sign"><span>Assinatura</span><span>Data ___/___/______</span></div>
+    ({T["all_together"]}: {_euros(week["pool_eur"])} ÷ {week["total_hours"]:g} h = {_euros(rate)}/h).
+    {T["rule_full"]}</div>
+  <div class="sign"><span>{T["signature"]}</span><span>{T["date"]} ___/___/______</span></div>
 </div>"""
 
 
-def payslips_html(week: dict, venue: str = "") -> str:
-    slips = "".join(_slip(week, e, venue) for e in payable(week))
+def payslips_html(week: dict, venue: str = "", lang: str = "pt") -> str:
+    T = _L(lang)
+    slips = "".join(_slip(week, e, venue, lang) for e in payable(week))
     if not slips:
-        slips = "<p>Sem horas nem adiantamentos nesta semana.</p>"
-    title = f"Gorjetas {week['start_date']}"
+        slips = f"<p>{T['nothing']}</p>"
+    title = f"{T['tips']} {week['start_date']}"
     return _page(title, slips)
 
 
-def cashsheet_html(week: dict, venue: str = "") -> str:
+def cashsheet_html(week: dict, venue: str = "", lang: str = "pt") -> str:
+    T = _L(lang)
     rows = "".join(
         f"<tr><td>{escape(e['name'])}</td>"
         f"<td class='num'>{_euros(week['gross_shares'].get(e['staff_id'], 0.0))}</td>"
@@ -191,18 +231,18 @@ def cashsheet_html(week: dict, venue: str = "") -> str:
         f"<td class='num'>☐</td></tr>"
         for e in payable(week))
     total = week_cash_total(week)
-    body = f"""<h1>{escape(venue or "Gorjetas")} — folha de caixa</h1>
-<div class="sub">Semana de {week["start_date"]} · pool {_euros(week["pool_eur"])} ·
-  {len(payable(week))} pessoas · vales já pagos {_euros(sum(e["vales"] for e in week["entries"]))}</div>
+    body = f"""<h1>{escape(venue or T["tips"])} — {T["cashsheet"]}</h1>
+<div class="sub">{T["week_of"]} {week["start_date"]} · pool {_euros(week["pool_eur"])} ·
+  {len(payable(week))} {T["people"]} · {T["paid_advances"]} {_euros(sum(e["vales"] for e in week["entries"]))}</div>
 <table>
-  <tr><th>Pessoa</th><th class="num">Bruto</th><th class="num">Adiant.</th>
-      <th class="num">A pagar</th><th class="num">Pago</th></tr>
+  <tr><th>{T["person"]}</th><th class="num">{T["gross"]}</th><th class="num">{T["adv_short"]}</th>
+      <th class="num">{T["to_pay"]}</th><th class="num">{T["paid"]}</th></tr>
   {rows}
-  <tr class="total"><td>Dinheiro a tirar da caixa</td><td class="num"></td><td class="num"></td>
+  <tr class="total"><td>{T["cash_out"]}</td><td class="num"></td><td class="num"></td>
       <td class="num">{_euros(total)}</td><td></td></tr>
 </table>
 <div class="statement">{_euros(week["pool_eur"])} × horas ÷
-  {week["total_hours"]:g} h = a vossa parte (média {_euros(week["rate_per_hour"])}/h).
-  Regra: horas ÷ total de horas.</div>
+  {week["total_hours"]:g} h = {T["your_share"]} ({T["average"]} {_euros(week["rate_per_hour"])}/h).
+  {T["rule"]}</div>
 <div class="sign"><span>Assinatura (gerência)</span><span>Data ___/___/______</span></div>"""
     return _page(f"Caixa {week['start_date']}", body)

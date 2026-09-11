@@ -66,7 +66,8 @@ primeira execução → semana nova → horas → adiantamento → teto → fech
 403s nos endpoints de gestão → disposições para telemóvel.
 
 `e2e/smoke.mjs` reutiliza o `playwright-core` da cópia do BarSpec
-(`/home/vitor/dev/barspec/node_modules`) e um Chromium de `~/.cache/ms-playwright`.
+(`../barspec/node_modules`, ou o seu próprio `npm i -D playwright-core`) e um Chromium
+de `~/.cache/ms-playwright`.
 Não é preciso instalar nada nesta máquina.
 
 **Nunca apontes os testes à base de dados em produção.** Eles copiam ou substituem o `TIPSPLIT_DB`.
@@ -77,7 +78,7 @@ Não é preciso instalar nada nesta máquina.
 sudo systemctl restart tipsplit && sleep 15 && systemctl is-active tipsplit
 ```
 
-Em produção em `192.168.1.77:8778`, base de dados em `/home/vitor/dev/tipsplit/tipsplit.db`, as
+Em produção no endereço da rede da casa (`http://<máquina>:8778`), base de dados em `<repo>/tipsplit.db`, as
 migrações correm no arranque. Antes de um reinício que mexa no esquema: copia primeiro a base de dados.
 
 ## Cópia de segurança e restauro

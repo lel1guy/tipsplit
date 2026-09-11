@@ -13,7 +13,7 @@ For whoever touches the code next (probably you, six months from now, at 1am).
 | `db.py` | SQLite access (no ORM), migrations runner, weeks/entries/staff/vales/settings/audit |
 | `auth.py` | PIN hashing (pbkdf2), the signed session cookie (role + staff id + expiry), brute-force brake |
 | `exporters.py` | payslips, cash sheet, week + annual xlsx/csv. **Formats only — never decides money** |
-| `static/index.html` | the whole UI: one file, vanilla JS, inline CSS, system fonts |
+| `static/index.html` | the whole UI: one file, vanilla JS, inline CSS, system fonts, PT-PT/EN dictionary (`I18N` + `t()`, `data-t` attributes in the markup) |
 | `migrations/*.sql` | schema steps, applied by `PRAGMA user_version` |
 | `ops/seed_demo.py` | the fictional venue (demos, screenshots) |
 | `tests/`, `e2e/smoke.mjs` | unit suite + browser journey |
@@ -64,8 +64,10 @@ week → hours → advance → ceiling → lock → payslips → exports → unl
 staff login → the staff page → 403s on management endpoints → phone layouts.
 
 `e2e/smoke.mjs` reuses `playwright-core` from the BarSpec checkout
-(`/home/vitor/dev/barspec/node_modules`) and a Chromium from `~/.cache/ms-playwright`.
-No install needed on this machine.
+(the `PW_CORE` env var points at your own install — `npm i -D playwright-core` —
+otherwise a sibling `../barspec/node_modules`) and a Chromium
+from `~/.cache/ms-playwright`.
+On the author's machine no install was needed.
 
 **Never point tests at the live DB.** They copy or override `TIPSPLIT_DB`.
 
@@ -75,8 +77,8 @@ No install needed on this machine.
 sudo systemctl restart tipsplit && sleep 15 && systemctl is-active tipsplit
 ```
 
-Live on `192.168.1.77:8778`, DB at `/home/vitor/dev/tipsplit/tipsplit.db`, migrations run
-on startup. Before a restart that touches schema: copy the DB first.
+Live on the venue's LAN address (`http://<host>:8778`), DB at `<repo>/tipsplit.db`,
+migrations run on startup. Before a restart that touches schema: copy the DB first.
 
 ## Backup and restore
 
@@ -118,6 +120,23 @@ TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python ops/seed_demo.py --weeks 8
 
 Then drive the app with a small playwright script and save into `docs/screenshots/`. The
 seed is deterministic, so the numbers in the README stay true.
+
+## Language (PT-PT / English)
+
+One setting (`settings.lang`) drives everything: the interface (`LANG` + `applyLang()`,
+applied in `boot()`), the fairness statement (`splitting.statement(..., lang)`), the
+printed payslips and cash sheet (`exporters._L(lang)`), and the user-facing API messages
+(`main._msg`). Defaults to `pt` everywhere, so a venue that never touches it sees no
+change.
+
+- Adding a user-visible string: add the key to **both** dictionaries and use `t("key")`
+  (or `data-t="key"` in the markup). Never hardcode PT in a template — that is how the
+  toggle leaks.
+- Euro formatting stays Portuguese in both languages (`33,60 €`); the toggle is about
+  words, not locale.
+- The spreadsheet exports stay Portuguese: their row mapping is keyed on `HEAD`.
+- `e2e/smoke.mjs` covers the toggle (switching to English must leave no Portuguese in
+  the sidebar or the week view, then switching back must restore it).
 
 ## Known sharp edges
 

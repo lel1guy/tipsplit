@@ -10,7 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 
-const require = createRequire("/home/vitor/dev/barspec/");
+// playwright-core: your own install (npm i -D playwright-core) or a sibling checkout
+const require = createRequire(process.env.PW_CORE || "/home/vitor/dev/barspec/");
 const { chromium } = require("playwright-core");
 
 const REPO = new URL("..", import.meta.url).pathname;
@@ -286,6 +287,32 @@ async function run() {
      (await page.textContent("#auditList")).includes("week.unlock"),
      (await page.textContent("#auditList")).slice(0, 60));
   await page.click('[data-view="semana"]');
+
+  // ---- 10b. the language toggle (Definições → English, and back) ----
+  await page.click('[data-view="definicoes"]');
+  await page.waitForSelector("#langSel");
+  await page.selectOption("#langSel", "en");
+  await page.waitForFunction(() => document.querySelector("#pageTitle").textContent === "Settings",
+                             null, { timeout: 15000 });
+  const PT = /(Semana|Equipa|Definições|Guardar|Fechar|Desbloquear|Adiantamento|Pessoa|Horas|Valor|Motivo|Sair|Vales|Comprovativos|Folha de caixa|Alterações|Acesso|Função|fechada|aberta)/;
+  const enShell = await page.evaluate(() => document.querySelector("aside").innerText);
+  ok("switching to English relabels the sidebar", !PT.test(enShell), String(enShell.match(PT)));
+  await page.click('[data-view="semana"]');
+  await page.click("#weekList .week-item");
+  await page.waitForSelector("#poolInput");
+  await sleep(600);
+  const enWeek = await page.evaluate(() => document.querySelector("main").innerText);
+  ok("the week view follows the language",
+     enWeek.includes("Save week") && enWeek.includes("Close week") && !PT.test(enWeek),
+     String(enWeek.match(PT)));
+  await page.click('[data-view="definicoes"]');
+  await page.waitForSelector("#langSel");
+  await page.selectOption("#langSel", "pt");
+  await page.waitForFunction(() => document.querySelector("#pageTitle").textContent === "Definições",
+                             null, { timeout: 15000 });
+  ok("switching back restores Portuguese",
+     (await page.textContent("aside")).includes("Semana"),
+     (await page.textContent("aside")).slice(0, 40));
 
   // ---- 11. phone layout (same session, 390x844) ----
   const phone = await ctx.newPage();

@@ -165,3 +165,33 @@ def test_settings_roundtrip(fresh):
     assert fresh.get_setting("venue_name") == "Bar Teste"
     fresh.set_setting("venue_name", "Bar Dois")
     assert fresh.get_setting("venue_name") == "Bar Dois"
+
+
+def test_printed_pages_follow_the_venue_language(fresh):
+    """settings.lang drives the printouts. PT stays byte-identical; EN is the mirror."""
+    full, _, _ = _week(fresh, pool=600.0, vale_a=20.0)
+    pt = exporters.payslips_html(full, "Bar Teste")
+    en = exporters.payslips_html(full, "Bar Teste", "en")
+    for pt_label in ("Horas trabalhadas", "A receber", "Assinatura", "Regra: horas ÷ total"):
+        assert pt_label in pt, pt_label
+        assert pt_label not in en, pt_label
+    for en_label in ("Hours worked", "To receive", "Signature", "Rule: hours ÷ total hours"):
+        assert en_label in en, en_label
+    assert "€" in en and "," in en          # euro format stays PT: 33,60 €
+
+    cs_pt = exporters.cashsheet_html(full, "Bar Teste")
+    cs_en = exporters.cashsheet_html(full, "Bar Teste", "en")
+    assert "Dinheiro a tirar da caixa" in cs_pt and "folha de caixa" in cs_pt
+    assert "Cash out of the till" in cs_en and "cash sheet" in cs_en
+    assert "Dinheiro a tirar da caixa" not in cs_en
+
+    # the spreadsheet exports stay Portuguese on purpose: they are data files for the
+    # accountant and their row mapping is keyed on HEAD
+
+
+def test_user_facing_errors_follow_the_venue_language(fresh, monkeypatch):
+    import main
+    fresh.set_setting("lang", "en")
+    assert main._msg("semana fechada", "week locked") == "week locked"
+    fresh.set_setting("lang", "pt")
+    assert main._msg("semana fechada", "week locked") == "semana fechada"

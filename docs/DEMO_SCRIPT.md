@@ -1,5 +1,7 @@
 # TipSplit — Demo Script (5 minutes, in front of a venue)
 
+**English** · [Português (PT-PT)](DEMO_SCRIPT.pt-PT.md) · [README](../README.md)
+
 Four moments, in this order. Rehearse once, then do it live. Everything runs on the demo
 dataset — a fictional venue, never a real one.
 

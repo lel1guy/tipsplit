@@ -1,5 +1,7 @@
 # TipSplit — Dev Guide
 
+**English** · [Português (PT-PT)](DEV_GUIDE.pt-PT.md) · [README](../README.md)
+
 For whoever touches the code next (probably you, six months from now, at 1am).
 
 ## Layout

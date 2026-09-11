@@ -2,188 +2,151 @@
 
 [English](README.md) · **Português (PT-PT)**
 
-Divisor semanal de gorjetas para bares, cafés e restaurantes pequenos. Entram as horas
-da equipa, toda a gente vê o mesmo número e o mesmo comprovativo, os **vales**
-(adiantamentos) saem da parte de cada um, e no dia de pagamento imprimem-se
-comprovativos para assinar à mão.
+Repartidor semanal de gorjetas para **bares, cafés e restaurantes** — escreva as horas,
+obtenha um quinhão com que ninguém discute, entregue comprovativos que sobrevivem a uma
+calculadora de bolso.
 
     quinhão = pool × (horas da pessoa ÷ horas totais) − vales
 
-Não passa dinheiro pela aplicação. É a calculadora e o comprovativo, não é a caixa.
+Feito por **Vitor Vareiro.** Inglês? Leia isto em [English](README.md).
 
-Aplicação irmã do [BarSpec](https://github.com/lel1guy/barspec) — mesma stack, mesma
-linguagem de design, produto separado.
+## Capturas de ecrã
 
----
+| A semana — horas a entrar, quinhão comprovável a sair | Dia de pagamento — comprovativos com a fórmula |
+|---|---|
+| ![Vista da semana: pool, a grelha de horas de Seg–Dom por pessoa, a coluna de vales, o líquido por pessoa e a declaração de equidade](docs/screenshots/semana.png) | ![Comprovativos impressos: uma página por pessoa com as horas, a fórmula por arredondar, os adiantamentos e o líquido a assinar](docs/screenshots/comprovativos.png) |
+| **Uma semana fechada — trancada, com os ficheiros do dia de pagamento** | **Equipa — lista do pessoal, estado do PIN, vales por semana** |
+| ![Uma semana trancada: grelha só de leitura, o selo de fecho e os botões Comprovativos / Folha de caixa / Excel / CSV](docs/screenshots/semana-fechada.png) | ![Vista de equipa: a lista com a função, os saldos de vales por semana e o estado do PIN de cada pessoa](docs/screenshots/equipa.png) |
+| **O que a equipa vê — os seus próprios números** | **Definições — casa, limite de vales, registo de alterações** |
+| ![A página do funcionário no telemóvel: as horas, o quinhão e os vales da própria pessoa e a tabela da semana inteira](docs/screenshots/minhas-gorjetas.png) | ![Definições: nome da casa, o limite de vales, o PIN do dono e a lista de alterações recentes](docs/screenshots/definicoes.png) |
 
-## Documentação
+*Capturas de computador e telemóvel do conjunto de dados de demonstração — uma casa
+fictícia, 8 semanas de histórico. Reproduza-as exatamente com `ops/seed_demo.py`
+(ver Pacote de demonstração).*
 
-- **[README](README.md)** (English) — este ficheiro, em inglês.
-- **[Guia de utilização](docs/USER_GUIDE.pt-PT.md)** — o manual de quem gere: o ritual
-  da semana, vales, dia de pagamento, fechar e reabrir semanas, PINs da equipa, perguntas
-  frequentes. [Versão inglesa](docs/USER_GUIDE.md).
-- **DEV_GUIDE** — arquitetura, migrações, testes, instalação, recuperação do PIN. *(a fazer)*
+## Início rápido
 
-## Para quem é
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m uvicorn main:app --port 8778      # http://localhost:8778
+```
 
-Casas com **5 a 30 pessoas** em Portugal/UE onde as gorjetas vão para um pote e se
-dividem por horas. Substitui a folha de cálculo que o gerente refaz todas as segundas —
-e, mais importante, responde à pergunta que começa todas as discussões: *«porque é que
-o meu número é esse?»*
+A primeira visita pede que defina o **PIN do dono** — e cria uma semana descartável com
+pessoal fictício, para poder brincar logo com o quinhão. Os nomes reais entram pela
+interface.
 
-O que distingue não é a aritmética. É a **prova**: a regra da divisão à vista em cada
-ecrã, comprovativos que sobrevivem a uma calculadora de bolso, adiantamentos que
-pertencem sempre a uma semana e um registo de alterações do dono sem edições silenciosas.
+Quer isto cheio de histórico? Crie a casa fictícia (8 semanas, 12 pessoas, vales em
+curso, uma semana aberta):
+
+```bash
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python ops/seed_demo.py --weeks 8
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 8791
+# owner PIN 1234 · one staff PIN 2468
+```
 
 ## O que faz
 
-- **Grelha da semana** — horas por dia (seg–dom, passos de 0,5 h), total automático e
-  pré-visualização do quinhão enquanto escreve. O pool entra num só campo.
-- **Divisão comprovável** — a conta vive no servidor, em `splitting.py`; o browser só
-  mostra. A prova impressa mostra a fórmula sem arredondar
-  (`470,40 € × 32 h ÷ 448 h = 33,60 €`), nunca um valor/hora arredondado multiplicado
-  de volta.
-- **Vales (adiantamentos)** — pertencem sempre a uma semana; agrupados por semana com
-  subtotais na *Equipa*; a semana mostra os seus próprios adiantamentos. Não precisam de
-  horas nem de motivo, e um vale sozinho põe a pessoa na tabela da semana (marcada
-  *sem horas*).
-- **Vale máximo** — limite opcional por adiantamento (*Definições*, `0` = sem limite),
-  aplicado no servidor.
-- **Dia de pagamento** — comprovativos por pessoa (vista de impressão), folha de caixa
-  para o balcão, exportação da semana (Excel/CSV) e exportação anual. Imprimir uma
-  semana aberta é recusado.
-- **As semanas fecham** — uma semana fechada só reabre com **motivo**, e o motivo fica
-  registado.
-- **A página da equipa** — cada pessoa tem PIN e vê *os seus* números e a tabela da
-  semana. Nada mais. Filtrado no servidor.
-- **PIN do dono** — um só campo de entrada: o PIN do dono abre a gestão, o PIN de uma
-  pessoa abre a página dessa pessoa.
-- **Registo de alterações** — definições, gravações, fechos, reaberturas, adiantamentos,
-  PINs.
-
-## Como correr
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --port 8001
-```
-
-Abrir http://127.0.0.1:8001 — na primeira vez pede para definir o PIN do dono e semeia
-uma semana de demonstração com **nomes fictícios e horas aleatórias**. Os nomes reais
-entram pela interface; a semente existe só para poder brincar com a divisão logo de
-início.
-
-Instalação nesta rede: serviço systemd `tipsplit`, a correr em `192.168.1.77:8778`.
-A base de dados é SQLite simples (`tipsplit.db`); as migrações correm no arranque.
-
-## Testes
-
-```bash
-python -m pytest tests/ -q      # 76 testes, a matemática e as regras do dinheiro
-node e2e/smoke.mjs              # 59 asserções de browser, o ritual todo
-```
-
-Os testes unitários cobrem a divisão proporcional, o acerto ao cêntimo pelo resto maior,
-vales, semanas sem horas, migrações a partir de uma base antiga, autenticação (hash de
-PIN, adulteração de cookie, expiração), isolamento por pessoa e o limite de vale. A
-suite de browser conduz a interface real contra uma base descartável: semana nova →
-horas → adiantamento → fecho → comprovativos → exportações → reabertura com motivo →
-entrada da equipa → 403 nos endpoints de gestão.
-
-## Modelo de dados
-
-| Tabela | Guarda |
-|--------|--------|
-| `weeks` | uma linha por semana (data da segunda, estado aberta/fechada) |
-| `week_pools` | o pool de cada semana |
-| `entries` | horas por pessoa por semana (seg…dom) |
-| `staff` | equipa: nome, função, arquivada, `pin_hash` |
-| `vales` | um registo por adiantamento: pessoa, data, **semana**, valor, motivo |
-| `settings` | nome da casa, idioma, `vale_max` |
-| `audit_log` | quem fez o quê, quando |
-
-Migrações em `migrations/*.sql` com `PRAGMA user_version`. O esquema base é o antigo de
-propósito, para a `001` correr em todas as instalações.
+- **A semana é um só ecrã**: pool a entrar, horas por dia (Seg–Dom, passos de 0,5 h),
+  vales, líquido a sair — com um quinhão ao vivo enquanto escreve. A verificação do pool
+  diz *pool todo dividido* quando os quinhões e o pool batem ao cêntimo.
+- **A matemática vive no servidor** (`splitting.py`) e o navegador só a apresenta.
+  Arredondamento pelo maior resto: todos arredondam por baixo, os cêntimos que sobram são
+  distribuídos, por isso os quinhões somam sempre o pool. Nada de 0,05 € a escapar como
+  numa folha de cálculo.
+- **Os vales (adiantamentos) pertencem a uma semana** — nunca a flutuar. Agrupados por
+  semana com subtotais; a semana mostra os seus próprios vales; ninguém precisa de horas
+  nem de um motivo para levar um, e um vale sozinho põe essa pessoa na tabela da semana
+  (marcada como *sem horas*).
+- **Vale máximo** — limite opcional por vale (*Definições*, `0` = sem limite), imposto no
+  servidor, sem nunca reescrever vales já registados.
+- **As semanas fecham.** Uma semana fechada não pode ser editada e pode ser impressa.
+  Reabrir exige um **motivo**, que fica registado no registo de alterações.
+- **Papelada do dia de pagamento**: comprovativos por pessoa com a fórmula por arredondar
+  (`470,40 € × 32 h ÷ 448 h = 33,60 €`) e uma linha para assinar, uma folha de caixa para
+  a caixa, exportação semanal (xlsx/csv) e uma exportação anual. Imprimir uma semana
+  aberta é recusado.
+- **A equipa tem a sua própria página**: um PIN cada um. Veem **as suas** horas, o
+  quinhão, os vales, o comprovativo e *a tabela inteira da semana* — mais nada. Filtrado
+  no servidor, não escondido no navegador.
+- **Portão do PIN do dono + registo de alterações**: um só campo de início de sessão (PIN
+  do dono → gestão, PIN de funcionário → a página dessa pessoa). As gravações, os fechos,
+  as reaberturas, os vales e as alterações de PIN ficam registados.
+- **Corre numa LAN da casa** sem internet: um ficheiro HTML, JS puro, tipos de letra do
+  sistema, SQLite. Sem nuvem, sem contas, sem passo de compilação.
 
 ## API
 
-Todos os endpoints excepto `/api/auth/*` e `/` exigem cookie de sessão.
+Todos os endpoints exceto `/api/auth/*` e `/` precisam de um cookie de sessão. Uma sessão
+de funcionário acede a `/api/me`, `/print/me/{week}` e ao logout — tudo o resto é **403**.
 
 | Método | Caminho | O quê |
-|--------|---------|-------|
-| GET | `/api/auth/status` | há PIN definido, que perfil tem esta sessão |
-| POST | `/api/auth/setup` | definir o primeiro PIN do dono |
-| POST | `/api/auth/login` | PIN do dono ou PIN de uma pessoa |
-| POST | `/api/auth/logout` | terminar sessão |
-| POST | `/api/auth/pin` | mudar o PIN do dono |
-| GET/POST | `/api/staff` | equipa / acrescentar pessoa |
-| POST | `/api/staff/{id}/archive` | arquivar ou reativar (o histórico fica) |
-| POST | `/api/staff/{id}/pin` | dar ou apagar o PIN de uma pessoa |
-| DELETE | `/api/staff/{id}` | apagar — só quem não tem histórico |
-| GET | `/api/team` | equipa + adiantamentos da semana + estado do PIN |
-| GET | `/api/dashboard` | os números da vista Semana |
-| GET | `/api/vales` | adiantamentos (`?week_id=` filtra, `?staff_id=` filtra) |
-| GET | `/api/vales/grouped` | o registo agrupado por semana, com subtotais |
-| POST | `/api/vales` | registar adiantamento (semana obrigatória; limite aplicado) |
-| DELETE | `/api/vales/{id}` | apagar adiantamento |
-| GET/POST | `/api/weeks` | listar / criar semana pela data da segunda |
-| GET/PUT/DELETE | `/api/weeks/{id}` | ler / mudar a data / apagar |
-| PUT | `/api/weeks/{id}/save` | pool + todas as entradas de uma vez |
-| POST | `/api/weeks/{id}/preview` | recalcular sem gravar |
-| POST | `/api/weeks/{id}/lock` | fechar a semana |
-| POST | `/api/weeks/{id}/unlock` | reabrir — **exige motivo** |
-| GET | `/print/payslips/{id}` | comprovativos para assinar (vista de impressão) |
-| GET | `/print/cashsheet/{id}` | folha de caixa para o balcão |
-| GET | `/api/export/week/{id}` | exportação da semana (xlsx/csv) |
-| GET | `/api/export/annual/{year}` | exportação anual |
-| GET | `/api/settings` · PUT | nome da casa, idioma, limite de vale |
-| GET | `/api/audit` | alterações recentes |
-| GET | `/api/me` | **só sessão de equipa** — números próprios, tabela da semana, vales próprios |
-| GET | `/print/me/{week_id}` | **só sessão de equipa** — o próprio comprovativo |
+|---|---|---|
+| GET | `/api/auth/status` | se há um PIN definido, que papel tem esta sessão |
+| POST | `/api/auth/setup` · `/login` · `/logout` · `/pin` | primeiro PIN · iniciar sessão (dono ou funcionário) · sair · alterar o PIN do dono |
+| GET/POST | `/api/staff` | lista do pessoal / adicionar uma pessoa |
+| POST | `/api/staff/{id}/archive` · `/pin` | arquivar ou reativar (histórico mantido) · emitir ou limpar um PIN |
+| DELETE | `/api/staff/{id}` | eliminar — só alguém sem histórico |
+| GET | `/api/team` · `/api/dashboard` | lista do pessoal + vales desta semana + estado do PIN · os números da vista da semana |
+| GET/POST/DELETE | `/api/vales`, `/api/vales/grouped`, `/api/vales/{id}` | vales: listar, agrupar por semana com subtotais, registar, eliminar |
+| GET/POST | `/api/weeks` | listar / criar uma semana pela sua segunda-feira |
+| GET/PUT/DELETE | `/api/weeks/{id}` | ler / mover a data / eliminar |
+| PUT/POST | `/api/weeks/{id}/save` · `/preview` · `/lock` · `/unlock` | guardar pool+horas · recalcular sem guardar · fechar · reabrir (motivo obrigatório) |
+| GET | `/print/payslips/{id}` · `/print/cashsheet/{id}` | comprovativos a assinar · folha de caixa |
+| GET | `/api/export/week/{id}` · `/api/export/annual/{year}` | exportações xlsx/csv |
+| GET/PUT | `/api/settings` · `/api/audit` | casa, idioma, limite de vales · alterações recentes |
+| GET | `/api/me` · `/print/me/{week_id}` | **só funcionários** — os seus números, tabela da semana, os seus vales, o seu comprovativo |
 
-Uma sessão de equipa chega a `/api/me`, `/print/me/{semana}` e ao logout. Tudo o resto
-responde **403** — verificado na suite de browser contra 8 endpoints.
+## Operações
 
-## Modelo de segurança
+Um ficheiro SQLite (`tipsplit.db`) e um processo. Ao vivo aqui: unidade systemd `tipsplit`
+no `:8778`; as migrações correm no arranque (`migrations/*.sql` + `PRAGMA user_version`).
+Publicações: tirar uma cópia da base de dados, fazer pull, reiniciar, verificar, fazer
+push. Faça cópia de segurança do ficheiro todas as noites antes de confiar nele um mês de
+dias de pagamento — ver o [Guia de programador](docs/DEV_GUIDE.md).
 
-- Os PINs são `pbkdf2_hmac`-SHA256 (260 mil iterações, sal por PIN). O cookie é assinado
-  com HMAC e leva **perfil + id da pessoa + validade**: um cookie de equipa não se
-  transforma em cookie de dono (testado, incluindo troca de id e de validade).
-- Partilhar PIN é recusado nos dois sentidos — um PIN repetido significa ler o dinheiro
-  de outra pessoa.
-- A página da equipa nunca recebe a lista da equipa; o servidor filtra pelo id da pessoa.
-- `/api/*` e `/print/*` levam `Cache-Control: no-store` — uma resposta 401 em cache já
-  fez a aplicação parecer avariada logo após a configuração.
+### Pacote de demonstração — "Bar Onda" (fictício)
 
-## O que de propósito não faz
+Uma casa inventada de raiz, para não se tomar emprestado nada real: 12 pessoas com padrões
+de turnos, 8 semanas de histórico, 7 fechadas com comprovativos, 21 vales espalhados pelas
+semanas e uma semana aberta para brincar. Determinístico — a mesma semente em cada
+execução, para que capturas e demonstrações não fujam.
 
-- **Não move dinheiro.** Sem pagamentos, sem banco, sem POS, sem integração com salários.
-- **Sem pesos por função.** A v1 divide só por horas; a função é uma etiqueta, não um
-  multiplicador. (Multiplicador de fim de semana/turno está no roteiro.)
-- **Sem multi-moeda.** EUR, interface em português, formatos de data e número PT.
-- **Não é um sistema de salários.** Diz o que há a pagar e imprime a prova.
+```bash
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python ops/seed_demo.py --weeks 8
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 8791
+# owner PIN 1234 · staff PIN 2468 (Ana Teixeira)
+```
 
-## Roteiro
+Ensaie-o com o [guião de demonstração](docs/DEMO_SCRIPT.md) de 5 minutos — os quatro
+momentos, por ordem, com o que dizer.
 
-| | |
-|---|---|
-| ✅ | Semanas, horas, pool, divisão comprovável, comprovativos, folha de caixa, exportações |
-| ✅ | Registo de vales por semana, adiantamento opcional, limite por vale |
-| ✅ | PIN, registo de alterações, reabertura com motivo, layout de telemóvel |
-| ✅ | Página da equipa (números próprios + tabela da semana), navegação a sério |
-| ⏭ | Pacote de demonstração: um bar fictício com 8 semanas de histórico |
-| ⏭ | Botão para inglês na interface (a interface é PT-PT) |
-| 💭 | Editar/remover pessoas com histórico (recalcular semanas antigas) |
-| 💭 | Multiplicador de turno/fim de semana nas horas |
-| 💭 | PWA para funcionar offline num telemóvel atrás do balcão |
+## Roadmap / estado
 
-## Stack
+Entregue: o ritual da semana, o quinhão comprovável, vales por semana com limite, fecho e
+reabertura com motivo, comprovativos/folha de caixa/exportações, o portão do PIN do dono
+com registo de alterações, a página própria da equipa, disposição para telemóvel e este
+conjunto de documentação (76 testes + 60 asserções de navegador).
 
-FastAPI + `sqlite3` simples (sem ORM) + um ficheiro HTML com JavaScript puro, tipos de
-letra do sistema (sem webfonts — corre numa LAN de casa sem internet). `openpyxl` para as
-exportações Excel. Idioma da interface por omissão: português (PT-PT).
+A seguir: um botão para inglês na interface (é PT-PT por opção — quem escreve as horas
+fala português), depois aquilo que uma casa real pedir primeiro. Deliberadamente **fora**
+de âmbito: movimento de dinheiro, integrações com POS ou processamento salarial,
+multimoeda, pesos por função. O plano do produto vive no vault
+(`Projects/Bar-Tech-Venture/tipsplit/TipSplit-Vision-and-Dev-Plan.md`).
 
----
+## Documentação
 
-Repositório privado. Bar-tech: `TipSplit` (este) + `BarSpec` (público).
+| | EN | PT-PT |
+|---|---|---|
+| Este ficheiro | [README.md](README.md) | [README.pt-PT.md](README.pt-PT.md) |
+| **Guia do utilizador** — o ritual semanal, vales, dia de pagamento, PINs, FAQs | [USER_GUIDE.md](docs/USER_GUIDE.md) | [USER_GUIDE.pt-PT.md](docs/USER_GUIDE.pt-PT.md) |
+| **Guia de programador** — arquitetura, esquema, testes, publicação, recuperação de PIN | [DEV_GUIDE.md](docs/DEV_GUIDE.md) | [DEV_GUIDE.pt-PT.md](docs/DEV_GUIDE.pt-PT.md) |
+| **Porquê** — o raciocínio por trás das regras | [WHY.md](docs/WHY.md) | [WHY.pt-PT.md](docs/WHY.pt-PT.md) |
+| **Guião de demonstração** — 5 minutos à frente de uma casa | [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | [DEMO_SCRIPT.pt-PT.md](docs/DEMO_SCRIPT.pt-PT.md) |
+
+## Licença
+
+**Repositório privado.** Não é concedida qualquer licença: o código, a documentação e as
+capturas não são para redistribuição. A aplicação irmã
+[BarSpec](https://github.com/lel1guy/barspec) é pública sob AGPL-3.0 com uma opção
+comercial — o TipSplit é um produto separado e mantém-se privado até o projeto dizer o
+contrário.

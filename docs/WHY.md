@@ -1,5 +1,7 @@
 # Why TipSplit works the way it does
 
+**English** · [Português (PT-PT)](WHY.pt-PT.md) · [README](../README.md)
+
 Design decisions with reasons, so nobody has to guess later — and so a future version
 doesn't quietly undo them.
 

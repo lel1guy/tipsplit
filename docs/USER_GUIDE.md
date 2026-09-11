@@ -8,7 +8,7 @@ no internet needed.
 
 **The rule behind everything:**
 
-    quinhão = pool × (horas da pessoa ÷ horas totais) − vales
+    parte = pool × (horas da pessoa ÷ horas totais) − vales
 
 Your hours decide your share. Advances you already took come off. Nothing else changes
 the number.
@@ -39,7 +39,7 @@ refuses, because it would rewrite old weeks.
    with zeroed hours.
 2. Type the **pool** for the week (total tips, one field).
 3. Type each person's **hours per day** (Mon–Sun, 0.5 h steps). Hours total themselves,
-   and each person's quinhão appears live while you type.
+   and each person's parte — their share — appears live while you type.
 4. **Check the strip at the top:** it reads *fully split* when the pool and the shares
    agree to the cent.
 5. **Guardar** (save). The week is now the record.
@@ -102,7 +102,7 @@ week always leaves a trace. Printing an open week is refused — lock first, the
 **Equipa → dar PIN** on a person (4+ digits, unique). Tell them the PIN. They open the
 same address on their phone, type their PIN, and land on **As minhas gorjetas**:
 
-- their hours, quinhão, advances and what's owed — and the week's full table, so nobody
+- their hours, parte (their share), advances and what's owed — and the week's full table, so nobody
   has to argue about the split
 - their own payslip (once the week is closed)
 - their advance history, per week

@@ -3,22 +3,22 @@
 [English](README.md) · **Português (PT-PT)**
 
 Repartidor semanal de gorjetas para **bares, cafés e restaurantes** — escreva as horas,
-obtenha um quinhão com que ninguém discute, entregue comprovativos que sobrevivem a uma
+obtenha uma parte com que ninguém discute, entregue comprovativos que sobrevivem a uma
 calculadora de bolso.
 
-    quinhão = pool × (horas da pessoa ÷ horas totais) − vales
+    parte = pool × (horas da pessoa ÷ horas totais) − vales
 
 Feito por **Vitor Vareiro.** Inglês? Leia isto em [English](README.md).
 
 ## Capturas de ecrã
 
-| A semana — horas a entrar, quinhão comprovável a sair | Dia de pagamento — comprovativos com a fórmula |
+| A semana — horas a entrar, parte comprovável a sair | Dia de pagamento — comprovativos com a fórmula |
 |---|---|
 | ![Vista da semana: pool, a grelha de horas de Seg–Dom por pessoa, a coluna de vales, o líquido por pessoa e a declaração de equidade](docs/screenshots/semana.png) | ![Comprovativos impressos: uma página por pessoa com as horas, a fórmula por arredondar, os adiantamentos e o líquido a assinar](docs/screenshots/comprovativos.png) |
 | **Uma semana fechada — trancada, com os ficheiros do dia de pagamento** | **Equipa — lista do pessoal, estado do PIN, vales por semana** |
 | ![Uma semana trancada: grelha só de leitura, o selo de fecho e os botões Comprovativos / Folha de caixa / Excel / CSV](docs/screenshots/semana-fechada.png) | ![Vista de equipa: a lista com a função, os saldos de vales por semana e o estado do PIN de cada pessoa](docs/screenshots/equipa.png) |
 | **O que a equipa vê — os seus próprios números** | **Definições — casa, limite de vales, registo de alterações** |
-| ![A página do funcionário no telemóvel: as horas, o quinhão e os vales da própria pessoa e a tabela da semana inteira](docs/screenshots/minhas-gorjetas.png) | ![Definições: nome da casa, o limite de vales, o PIN do dono e a lista de alterações recentes](docs/screenshots/definicoes.png) |
+| ![A página do funcionário no telemóvel: as horas, a parte e os vales da própria pessoa e a tabela da semana inteira](docs/screenshots/minhas-gorjetas.png) | ![Definições: nome da casa, o limite de vales, o PIN do dono e a lista de alterações recentes](docs/screenshots/definicoes.png) |
 
 *Capturas de computador e telemóvel do conjunto de dados de demonstração — uma casa
 fictícia, 8 semanas de histórico. Reproduza-as exatamente com `ops/seed_demo.py`
@@ -32,7 +32,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 A primeira visita pede que defina o **PIN do dono** — e cria uma semana descartável com
-pessoal fictício, para poder brincar logo com o quinhão. Os nomes reais entram pela
+pessoal fictício, para poder brincar logo com a parte. Os nomes reais entram pela
 interface.
 
 Quer isto cheio de histórico? Crie a casa fictícia (8 semanas, 12 pessoas, vales em
@@ -47,7 +47,7 @@ TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 87
 ## O que faz
 
 - **A semana é um só ecrã**: pool a entrar, horas por dia (Seg–Dom, passos de 0,5 h),
-  vales, líquido a sair — com um quinhão ao vivo enquanto escreve. A verificação do pool
+  vales, líquido a sair — com uma parte ao vivo enquanto escreve. A verificação do pool
   diz *pool todo dividido* quando os quinhões e o pool batem ao cêntimo.
 - **A matemática vive no servidor** (`splitting.py`) e o navegador só a apresenta.
   Arredondamento pelo maior resto: todos arredondam por baixo, os cêntimos que sobram são
@@ -66,7 +66,7 @@ TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 87
   a caixa, exportação semanal (xlsx/csv) e uma exportação anual. Imprimir uma semana
   aberta é recusado.
 - **A equipa tem a sua própria página**: um PIN cada um. Veem **as suas** horas, o
-  quinhão, os vales, o comprovativo e *a tabela inteira da semana* — mais nada. Filtrado
+  a parte, os vales, o comprovativo e *a tabela inteira da semana* — mais nada. Filtrado
   no servidor, não escondido no navegador.
 - **Portão do PIN do dono + registo de alterações**: um só campo de início de sessão (PIN
   do dono → gestão, PIN de funcionário → a página dessa pessoa). As gravações, os fechos,
@@ -122,7 +122,7 @@ momentos, por ordem, com o que dizer.
 
 ## Roadmap / estado
 
-Entregue: o ritual da semana, o quinhão comprovável, vales por semana com limite, fecho e
+Entregue: o ritual da semana, a parte comprovável, vales por semana com limite, fecho e
 reabertura com motivo, comprovativos/folha de caixa/exportações, o portão do PIN do dono
 com registo de alterações, a página própria da equipa, disposição para telemóvel e este
 conjunto de documentação (76 testes + 60 asserções de navegador).

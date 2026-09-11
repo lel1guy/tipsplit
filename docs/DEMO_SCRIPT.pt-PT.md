@@ -51,7 +51,7 @@ Apontar para **Conferência ✓ OK**.
 
 Depois abrir a página da equipa (**o PIN da equipa**) no telemóvel:
 
-> "Isto é o que a equipa vê. As horas, o quinhão, os adiantamentos e a tabela da semana
+> "Isto é o que a equipa vê. As horas, a parte, os adiantamentos e a tabela da semana
 > toda. Não o salário do colega — a tabela: os mesmos números que todos os outros têm. É
 > para acabar com o «então e porque é que o meu é menos?»"
 

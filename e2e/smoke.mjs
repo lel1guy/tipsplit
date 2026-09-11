@@ -328,9 +328,9 @@ async function run() {
   ok("staff lands on their own page",
      (await page.textContent("#staffPage h1")).includes("As minhas gorjetas"),
      (await page.textContent("#staffPage h1")).slice(0, 40));
-  ok("staff sees their own line", staffBody.includes("Rateio"));
+  ok("staff sees their own line", staffBody.includes("Parte"));
   ok("staff sees the week's table (variant B)", staffBody.includes("(eu)"));
-  ok("staff table reconciles: rateio, advances, net",
+  ok("staff table reconciles: parte, advances, net",
      staffBody.includes("Adiant.") && staffBody.includes("para pagar agora"),
      staffBody.includes("Adiant.") ? "no reconciliation line" : "no advances column");
   ok("staff gets a provable statement", staffBody.includes("Regra"));

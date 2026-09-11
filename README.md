@@ -3,7 +3,7 @@
 Weekly tip splitter for **bars, cafés and restaurants** — type the hours, get a split
 that nobody argues with, hand out payslips that survive a pocket calculator.
 
-    quinhão = pool × (horas da pessoa ÷ horas totais) − vales
+    parte = pool × (horas da pessoa ÷ horas totais) − vales
 
 Built by **Vitor Vareiro.** European Portuguese? Read this in
 [Português](README.pt-PT.md).

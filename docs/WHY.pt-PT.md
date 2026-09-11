@@ -34,7 +34,7 @@ O TipSplit arredonda todos para baixo (para ninguém receber a mais) e distribui
 que sobram pelo maior resto, para que os quinhões somem o pote **até ao cêntimo** — um
 invariante com testes por trás.
 
-## 4. Um adiantamento acima do quinhão de alguém é permitido, e é sinalizado
+## 4. Um adiantamento acima da parte de alguém é permitido, e é sinalizado
 
 Bloqueá-lo significaria que o gerente não pode ajudar alguém numa semana má. Por isso a
 aplicação permite-o, imprime `€X vale acima do ganho (dívida ao pote)` a vermelho, arredonda
@@ -65,7 +65,7 @@ que `hours × rate` e conclui que a casa ficou com a diferença. Essa leitura er
 uma captura de ecrã de distância, e é o mal-entendido mais caro que esta aplicação pode
 causar.
 
-Por isso a tabela mostra horas, quinhão, adiantamentos e líquido, mais a linha
+Por isso a tabela mostra horas, parte, adiantamentos e líquido, mais a linha
 `pool − advances = to pay now`.
 
 ## 8. A sessão de um membro da equipa é filtrada no servidor

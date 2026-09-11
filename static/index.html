@@ -681,7 +681,7 @@ async function openWeek(id) {
     </div>
     <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
       As horas de cada dia (seg–dom) somam o total da pessoa.
-      Quinhão = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.
+      Parte = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.
       ${locked ? "Semana fechada — para corrigir, é preciso desbloquear (com motivo)." : ""}
     </div>`;
 
@@ -1034,7 +1034,7 @@ async function startStaff(name) {
   const w = d.week, mine = d.mine || { hours: 0, gross: 0, vales: 0, net: 0 };
   const cards = w ? [
     ["Horas esta semana", `${mine.hours || 0}`],
-    ["Rateio", eur(mine.gross || 0)],
+    ["Parte", eur(mine.gross || 0)],
     ["Adiantamentos", eur(mine.vales || 0)],
     ["A receber", eur(mine.net || 0)],
   ] : [["Semana", "sem dados"]];
@@ -1052,7 +1052,7 @@ async function startStaff(name) {
       </div>
       <table>
         <tr><th>Horas</th><td class="num">${mine.hours || 0} h</td></tr>
-        <tr><th>Rateio (horas ÷ total)</th><td class="num">${eur(mine.gross || 0)}</td></tr>
+        <tr><th>Parte (horas ÷ total)</th><td class="num">${eur(mine.gross || 0)}</td></tr>
         <tr><th>Adiantamentos (vales)</th><td class="num">− ${eur(mine.vales || 0)}</td></tr>
         <tr class="total"><td>A receber</td><td class="num net-share">${eur(mine.net || 0)}</td></tr>
       </table>
@@ -1067,7 +1067,7 @@ async function startStaff(name) {
       <div class="cap" style="margin-bottom:6px">A divisão desta semana
         (pool ${eur(w.pool_eur)} · ${w.total_hours} h · ${eur(w.rate_per_hour)}/h)</div>
       <div style="overflow-x:auto"><table>
-        <tr><th>Pessoa</th><th class="num">Horas</th><th class="num">Rateio</th>
+        <tr><th>Pessoa</th><th class="num">Horas</th><th class="num">Parte</th>
             <th class="num">Adiant.</th><th class="num">A receber</th></tr>
         ${d.team.map(t => `<tr${t.me ? ' style="background:var(--accent-dim)"' : ""}>
           <td class="staff-name">${esc(t.name)}${t.me ? " (eu)" : ""}</td>

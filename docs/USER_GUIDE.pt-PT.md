@@ -8,7 +8,7 @@ internet de que precise.
 
 **A regra por trás de tudo:**
 
-    quinhão = pool × (horas da pessoa ÷ horas totais) − vales
+    parte = pool × (horas da pessoa ÷ horas totais) − vales
 
 As horas decidem a parte. Os adiantamentos que já levou saem dessa parte. Mais nada mexe
 no número.
@@ -40,7 +40,7 @@ aplicação recusa, porque isso reescreveria semanas antigas.
    e as horas a zero.
 2. Escreva o **pool** da semana (o total das gorjetas, num só campo).
 3. Escreva as **horas por dia** de cada pessoa (seg–dom, passos de 0,5 h). As horas somam
-   sozinhas e o quinhão de cada um aparece a atualizar-se enquanto escreve.
+   sozinhas e a parte de cada um aparece a atualizar-se enquanto escreve.
 4. **Veja a faixa no topo:** diz *totalmente dividido* quando o pool e as partes batem ao
    cêntimo.
 5. **Guardar**. Essa semana passa a ser o registo.
@@ -105,7 +105,7 @@ pague depois.
 **Equipa → dar PIN** a uma pessoa (4+ dígitos, sem repetir). Diga-lhe o PIN. Ela abre o
 mesmo endereço no telemóvel, escreve o PIN e cai em **As minhas gorjetas**:
 
-- as horas, o quinhão, os adiantamentos e o que falta receber — e a tabela toda da
+- as horas, a parte, os adiantamentos e o que falta receber — e a tabela toda da
   semana, para ninguém ter de discutir a divisão
 - o comprovativo próprio (assim que a semana fechar)
 - o histórico de adiantamentos, por semana

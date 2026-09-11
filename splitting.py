@@ -86,10 +86,14 @@ def vale_debt(gross: float, vale: float) -> float:
 
 
 def fmt_eur(value: float, lang: str = "pt") -> str:
+    """Euros are always written the Portuguese way — '600,00 €' — in both languages.
+
+    The toggle switches words, not the money: the printed payslip keeps the same format,
+    and a manager comparing the screen with the paper must not have to translate a
+    decimal point. `lang` is kept for callers that pass it.
+    """
     s = f"{value:,.2f}"
-    if lang.startswith("pt"):
-        return s.replace(",", "\u00a0").replace(".", ",").replace("\u00a0", ".") + " €"
-    return s + " €"
+    return s.replace(",", "\u00a0").replace(".", ",").replace("\u00a0", ".") + " €"
 
 
 def statement(pool_eur: float, total_hours: float, lang: str = "pt") -> str:

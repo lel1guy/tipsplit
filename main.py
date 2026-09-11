@@ -184,11 +184,13 @@ def create_week(w: WeekIn):
     return db.create_week(w.start_date)
 
 @app.get("/api/weeks/{week_id}")
-def get_week(week_id: int, lang: str = "pt"):
+def get_week(week_id: int, lang: str | None = None):
     wk = db.get_week(week_id)
     if not wk:
         raise HTTPException(404, "Week not found")
-    wk["statement"] = splitting.statement(wk["pool_eur"], wk["total_hours"], _lang(lang))
+    # no ?lang= means "whatever the venue chose in Definições"
+    wk["statement"] = splitting.statement(wk["pool_eur"], wk["total_hours"],
+                                          lang or _lang_setting())
     return wk
 
 @app.put("/api/weeks/{week_id}")
@@ -221,7 +223,7 @@ def save_week(week_id: int, data: WeekSaveIn):
     return out
 
 @app.post("/api/weeks/{week_id}/preview")
-def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
+def preview_week(week_id: int, data: WeekSaveIn, lang: str | None = None):
     """Live split preview for the edit grid — same math as saving, but
     nothing is written. Keeps the browser free of a second formula."""
     wk = db.get_week(week_id)
@@ -232,7 +234,7 @@ def preview_week(week_id: int, data: WeekSaveIn, lang: str = "pt"):
     vales = {e["staff_id"]: e["vales"] for e in wk["entries"]}
     for e in entries:
         e["vales"] = vales.get(e["staff_id"], 0.0)
-    return _preview(data.pool_eur, entries, _lang(lang))
+    return _preview(data.pool_eur, entries, lang or _lang_setting())
 
 @app.post("/api/weeks/{week_id}/lock")
 def lock_week(week_id: int, closed_by: str = ""):

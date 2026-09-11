@@ -62,7 +62,7 @@ def test_statement_both_languages():
     pt = splitting.statement(555.0, 472.0, "pt")
     en = splitting.statement(555.0, 472.0, "en")
     assert "472" in pt and "Regra" in pt and "555,00" in pt
-    assert "472" in en and "Rule" in en and "555.00" in en
+    assert "472" in en and "Rule" in en and "555,00" in en   # euros stay PT-formatted
     assert "Sem horas" in splitting.statement(0.0, 0.0, "pt")
     assert "No hours" in splitting.statement(0.0, 0.0, "en")
 

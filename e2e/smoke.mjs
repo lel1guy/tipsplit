@@ -276,9 +276,15 @@ async function run() {
   await sleep(900);
   ok("week reopened", (await page.$$(".badge")).length === 0);
   ok("save button back", (await page.$$("#saveBtn")).length === 1);
+  // the audit panel renders on entering Definições — read it the way a user would
+  await page.click('[data-view="definicoes"]');
+  await page.waitForFunction(
+    () => document.querySelector("#auditList").textContent.includes("week.unlock"),
+    null, { timeout: 20000 });
   ok("unlock reason recorded in the audit list",
      (await page.textContent("#auditList")).includes("week.unlock"),
      (await page.textContent("#auditList")).slice(0, 60));
+  await page.click('[data-view="semana"]');
 
   // ---- 11. phone layout (same session, 390x844) ----
   const phone = await ctx.newPage();

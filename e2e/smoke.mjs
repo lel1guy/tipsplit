@@ -320,6 +320,10 @@ async function run() {
   await page.click("#gateBtn");
   await page.waitForFunction(() => document.body.classList.contains("is-staff"),
                              null, { timeout: 15000 });
+  // is-staff is set before /api/me lands — wait for the page to actually have numbers
+  await page.waitForFunction(
+    () => (document.querySelector("#staffBody")?.textContent || "").length > 100,
+    null, { timeout: 20000 });
   const staffBody = await page.textContent("#staffBody");
   ok("staff lands on their own page",
      (await page.textContent("#staffPage h1")).includes("As minhas gorjetas"),

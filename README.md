@@ -1,180 +1,142 @@
 # TipSplit
 
-**English** · [Português (PT-PT)](README.pt-PT.md)
+Weekly tip splitter for **bars, cafés and restaurants** — type the hours, get a split
+that nobody argues with, hand out payslips that survive a pocket calculator.
 
-A weekly tip splitter for small bars, cafés and restaurants. Staff hours go in,
-everyone sees the same provable number, **vales** (cash advances) come off each
-person's share, and payday prints payslips you can hand out with a pen.
+    quinhão = pool × (horas da pessoa ÷ horas totais) − vales
 
-    share = pool × (horas da pessoa ÷ horas totais) − vales
+Built by **Vitor Vareiro.** European Portuguese? Read this in
+[Português](README.pt-PT.md).
 
-No money moves through the app. It's the calculator and the receipt, not the till.
+## Screenshots
 
-Sister app to [BarSpec](https://github.com/lel1guy/barspec) — same stack, same design
-language, separate product.
+| The week — hours in, provable split out | Payday — payslips with the formula on them |
+|---|---|
+| ![Week view: pool, the Mon–Sun hour grid per person, vales column, net per person, and the fairness statement](docs/screenshots/semana.png) | ![Printed payslips: one page per person with hours, the unrounded formula, advances and the net to sign for](docs/screenshots/comprovativos.png) |
+| **A closed week — locked, with the payday files** | **Equipa — roster, PIN state, advances per week** |
+| ![A locked week: read-only grid, the lock badge, and the Comprovativos / Folha de caixa / Excel / CSV buttons](docs/screenshots/semana-fechada.png) | ![Team view: the roster with position, advance balances per week, and per-person PIN state](docs/screenshots/equipa.png) |
+| **What the team sees — their own numbers** | **Definições — venue, vale ceiling, audit trail** |
+| ![The staff page on a phone: the person's own hours, share, advances and the whole week's table](docs/screenshots/minhas-gorjetas.png) | ![Settings: venue name, the vale ceiling, owner PIN and the recent-changes audit list](docs/screenshots/definicoes.png) |
 
----
+*Desktop and phone captures of the demo dataset — a fictional venue, 8 weeks of history.
+Reproduce them exactly with `ops/seed_demo.py` (see Demo bundle).*
 
-## Docs
+## Quick start
 
-- **[README](README.pt-PT.md)** (PT-PT) — this file, in Portuguese.
-- **[User Guide](docs/USER_GUIDE.md)** — the manager's manual: the weekly ritual, vales,
-  payday, closing and reopening weeks, staff PINs, common questions.
-  [PT-PT version](docs/USER_GUIDE.pt-PT.md).
-- **DEV_GUIDE** — architecture, migrations, tests, deploy, PIN recovery. *(planned)*
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m uvicorn main:app --port 8778      # http://localhost:8778
+```
 
-## Who it's for
+First visit asks you to define the **owner PIN** — and seeds one throwaway week with
+fictional staff, so you can play with the split immediately. Real names go in through
+the UI.
 
-Venues with **5–30 staff** in Portugal/EU where tips are pooled and split by hours.
-It replaces the spreadsheet the manager rebuilds every Monday — and, more importantly,
-answers the question that starts every argument: *"why is my number that number?"*
+Want it full of history? Seed the fictional venue (8 weeks, 12 people, advances in
+flight, one open week):
 
-The differentiator isn't the arithmetic. It's **proof**: a fairness statement on every
-screen, payslips that survive a pocket calculator, advances that always belong to a
-week, and an owner audit trail with no silent edits.
+```bash
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python ops/seed_demo.py --weeks 8
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 8791
+# owner PIN 1234 · one staff PIN 2468
+```
 
 ## What it does
 
-- **Week grid** — hours per day (Mon–Sun, 0.5 h steps), auto-totaled, live share
-  preview while you type. Pool enters in one field.
-- **Provable split** — the split math lives server-side in `splitting.py`; the browser
-  only displays it. Printed proof shows the unrounded formula
-  (`470,40 € × 32 h ÷ 448 h = 33,60 €`), never a rounded rate multiplied back out.
-- **Vales (advances)** — always attached to a week; grouped per week with subtotals in
-  *Equipa*; the week shows its own advances. Nobody needs hours or a motivo to take one,
-  and an advance alone puts that person in the week's table (tagged *sem horas*).
+- **The week is one screen**: pool in, hours per day (Seg–Dom, 0.5 h steps), advances,
+  net out — with a live split as you type. The pool check reads *pool todo dividido*
+  when the shares and the pool agree to the cent.
+- **The math lives server-side** (`splitting.py`) and the browser only displays it.
+  Largest-remainder rounding: everyone floors, the leftover cents are handed out, so the
+  shares always add up to the pool. No drifting €0.05 like a spreadsheet.
+- **Vales (advances) belong to a week** — never floating. Grouped per week with
+  subtotals; the week shows its own advances; nobody needs hours or a motivo to take
+  one, and an advance alone puts that person in the week's table (tagged *sem horas*).
 - **Vale máximo** — optional ceiling per advance (*Definições*, `0` = no limit),
-  enforced server-side.
-- **Payday** — signed payslips per person (print view), a cash sheet for the till,
-  week export (Excel/CSV) and an annual export. Printing an unlocked week is refused.
-- **Weeks lock** — a locked week can only be reopened with a **reason**, which is
-  recorded.
-- **The team's own page** — each person gets a PIN and sees *their* numbers and the
-  week's table. Nothing else. Filtered server-side.
-- **Owner PIN gate** — one login field: the owner PIN opens management, a staff PIN
-  opens that person's page.
-- **Audit trail** — settings changes, week saves, locks, unlocks, advances, PINs.
-
-## Run it
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --port 8001
-```
-
-Open http://127.0.0.1:8001 — the first run asks you to define the owner PIN, then seeds
-one demo week with **fictional staff and random hours**. Real names get added in the UI;
-the seed only exists so you can play with the split immediately.
-
-Deployment on this network: systemd unit `tipsplit`, live on `192.168.1.77:8778`.
-The DB is plain SQLite (`tipsplit.db`); migrations run on startup.
-
-## Tests
-
-```bash
-python -m pytest tests/ -q      # 76 tests, the split math + money rules
-node e2e/smoke.mjs              # 59 browser assertions across the full ritual
-```
-
-The unit suite covers proportional splits, largest-remainder cent balancing, vales,
-zero-hour weeks, migrations from a legacy DB, auth (PIN hashing, token tampering,
-expiry), per-staff isolation and the vale ceiling. The browser suite drives the real
-UI against a throwaway DB: new week → hours → advance → lock → payslips → exports →
-unlock with a reason → staff login → 403s on management endpoints.
-
-## Data model
-
-| Table | Holds |
-|-------|-------|
-| `weeks` | one row per week (Monday date, status open/locked) |
-| `week_pools` | the pool per week |
-| `entries` | hours per person per week (mon…sun) |
-| `staff` | roster: name, position label, archived flag, `pin_hash` |
-| `vales` | one row per advance: person, date, **week**, amount, note |
-| `settings` | venue name, language, `vale_max` |
-| `audit_log` | who did what, when |
-
-Migrations in `migrations/*.sql` with `PRAGMA user_version`. Base schema is the old
-shape on purpose, so `001` exercises on every install.
+  enforced server-side, never rewriting advances already recorded.
+- **Weeks lock.** A closed week can't be edited and can be printed. Reopening requires a
+  **motivo**, which is recorded in the audit trail.
+- **Payday paperwork**: payslips per person with the unrounded formula
+  (`470,40 € × 32 h ÷ 448 h = 33,60 €`) and a signature line, a cash sheet for the till,
+  week export (xlsx/csv) and an annual export. Printing an unlocked week is refused.
+- **The team gets their own page**: a PIN each. They see **their** hours, share,
+  advances, payslip and *the week's whole table* — nothing else. Filtered server-side,
+  not hidden in the browser.
+- **Owner PIN gate + audit trail**: one login field (owner PIN → management, staff PIN →
+  that person's page). Saves, locks, reopenings, advances and PIN changes are logged.
+- **Runs on a venue LAN** with no internet: one HTML file, vanilla JS, system fonts,
+  SQLite. No cloud, no accounts, no build step.
 
 ## API
 
-All endpoints except `/api/auth/*` and `/` require a session cookie.
+Every endpoint except `/api/auth/*` and `/` needs a session cookie. A staff session
+reaches `/api/me`, `/print/me/{week}` and logout — everything else is **403**.
 
 | Method | Path | What |
-|--------|------|------|
-| GET | `/api/auth/status` | is a PIN set, what role is this session |
-| POST | `/api/auth/setup` | define the first owner PIN |
-| POST | `/api/auth/login` | owner PIN or staff PIN |
-| POST | `/api/auth/logout` | clear the session |
-| POST | `/api/auth/pin` | change the owner PIN |
+|---|---|---|
+| GET | `/api/auth/status` | is a PIN set, which role is this session |
+| POST | `/api/auth/setup` · `/login` · `/logout` · `/pin` | first PIN · sign in (owner or staff) · out · change owner PIN |
 | GET/POST | `/api/staff` | roster / add a person |
-| POST | `/api/staff/{id}/archive` | archive or reactivate (history is kept) |
-| POST | `/api/staff/{id}/pin` | give or clear a person's PIN |
+| POST | `/api/staff/{id}/archive` · `/pin` | archive or reactivate (history kept) · issue or clear a PIN |
 | DELETE | `/api/staff/{id}` | delete — only someone with no history |
-| GET | `/api/team` | roster + this week's advances + PIN state |
-| GET | `/api/dashboard` | the numbers on the Semana view |
-| GET | `/api/vales` | advances (`?week_id=` filters, `?staff_id=` filters) |
-| GET | `/api/vales/grouped` | the ledger grouped per week, with subtotals |
-| POST | `/api/vales` | record an advance (week required; ceiling enforced) |
-| DELETE | `/api/vales/{id}` | remove an advance |
-| GET/POST | `/api/weeks` | list / create a week by Monday date |
-| GET/PUT/DELETE | `/api/weeks/{id}` | read / edit the date / delete |
-| PUT | `/api/weeks/{id}/save` | pool + all entries in one shot |
-| POST | `/api/weeks/{id}/preview` | recompute shares without saving |
-| POST | `/api/weeks/{id}/lock` | close the week |
-| POST | `/api/weeks/{id}/unlock` | reopen — **requires a motivo** |
-| GET | `/print/payslips/{id}` | signed payslips (HTML print view) |
-| GET | `/print/cashsheet/{id}` | cash sheet for the till |
-| GET | `/api/export/week/{id}` | week export (xlsx/csv) |
-| GET | `/api/export/annual/{year}` | annual export |
-| GET | `/api/settings` · PUT | venue name, language, vale ceiling |
-| GET | `/api/audit` | recent changes |
-| GET | `/api/me` | **staff session only** — own numbers, week table, own advances |
-| GET | `/print/me/{week_id}` | **staff session only** — own payslip |
+| GET | `/api/team` · `/api/dashboard` | roster + this week's advances + PIN state · the numbers on the week view |
+| GET/POST/DELETE | `/api/vales`, `/api/vales/grouped`, `/api/vales/{id}` | advances: list, grouped per week with subtotals, record, delete |
+| GET/POST | `/api/weeks` | list / create a week by its Monday |
+| GET/PUT/DELETE | `/api/weeks/{id}` | read / move the date / delete |
+| PUT/POST | `/api/weeks/{id}/save` · `/preview` · `/lock` · `/unlock` | save pool+hours · recompute without saving · close · reopen (motivo required) |
+| GET | `/print/payslips/{id}` · `/print/cashsheet/{id}` | payslips to sign · cash sheet |
+| GET | `/api/export/week/{id}` · `/api/export/annual/{year}` | xlsx/csv exports |
+| GET/PUT | `/api/settings` · `/api/audit` | venue, language, vale ceiling · recent changes |
+| GET | `/api/me` · `/print/me/{week_id}` | **staff only** — own numbers, week table, own advances, own payslip |
 
-A staff session reaches `/api/me`, `/print/me/{week}` and logout. Everything else
-answers **403** — verified in the browser suite against 8 endpoints.
+## Operations
 
-## Security model
+One SQLite file (`tipsplit.db`) and one process. Live here: systemd unit `tipsplit` on
+`:8778`; migrations run on startup (`migrations/*.sql` + `PRAGMA user_version`).
+Deploys: snapshot the DB, pull, restart, verify, push. Back the file up nightly before
+you trust it with a month of paydays — see the [Dev Guide](docs/DEV_GUIDE.md).
 
-- PINs are `pbkdf2_hmac`-SHA256 (260k iterations, per-PIN salt). A cookie is
-  HMAC-signed and carries **role + staff id + expiry**: a staff cookie cannot be
-  edited into an owner one (unit-tested, including id and expiry tampering).
-- Sharing a PIN is refused both ways — a duplicate means reading someone else's money.
-- The staff page never receives the roster; the server filters to that person's id.
-- `/api/*` and `/print/*` are `Cache-Control: no-store` — a cached 401 once made the
-  app look broken right after setup.
+### Demo bundle — "Bar Onda" (fictional)
 
-## What it deliberately does not do
+A complete invented venue so nothing real is borrowed: 12 people with shift patterns, 8
+weeks of history, 7 closed with payslips, 21 advances spread over the weeks, and one open
+week to play with. Deterministic — the same seed every run, so screenshots and demos
+don't drift.
 
-- **No money movement.** No payments, no bank, no POS, no payroll integration.
-- **No position weights.** v1 splits by hours only; position is a label, not a
-  multiplier. (A weekend/shift multiplier is on the roadmap.)
-- **No multi-currency.** EUR, Portuguese UI, PT date and number formats.
-- **It is not a payroll system.** It tells you what to pay and prints the proof.
+```bash
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python ops/seed_demo.py --weeks 8
+TIPSPLIT_DB=/tmp/tipsplit-demo.db .venv/bin/python -m uvicorn main:app --port 8791
+# owner PIN 1234 · staff PIN 2468 (Ana Teixeira)
+```
 
-## Roadmap
+Rehearse it with the 5-minute [demo script](docs/DEMO_SCRIPT.md) — the four moments, in
+order, with what to say.
 
-| | |
-|---|---|
-| ✅ | Weeks, hours, pool, provable split, payslips, cash sheet, exports |
-| ✅ | Vales ledger per week, optional advance, per-advance ceiling |
-| ✅ | PIN gate, audit trail, unlock-with-reason, mobile layout |
-| ✅ | Staff page (own numbers + the week's table), real navigation |
-| ⏭ | Demo bundle: a fictional bar with 8 weeks of history |
-| ⏭ | English UI toggle (the interface is PT-PT) |
-| 💭 | Edit/remove staff that have history (recompute old weeks) |
-| 💭 | Shift/weekend multiplier for hours |
-| 💭 | PWA so it works offline on a phone behind the bar |
+## Roadmap / status
 
-## Stack
+Shipped: the week ritual, the provable split, vales per week with a ceiling, locking and
+unlock-with-reason, payslips/cash sheet/exports, the owner PIN gate with an audit trail,
+the team's own page, mobile layout, and this docs set (76 tests + 60 browser assertions).
 
-FastAPI + plain `sqlite3` (no ORM) + one HTML file with vanilla JS, system font stacks
-(no webfonts — it runs on a venue LAN with no internet). `openpyxl` for Excel exports.
-Default UI language: Portuguese (PT-PT).
+Next: an English toggle for the interface (it is PT-PT by design — the people typing
+hours are Portuguese-speaking), then whatever a real venue asks for first. Deliberately
+**not** in scope: money movement, POS or payroll integrations, multi-currency, position
+weights. The product plan lives in the vault
+(`Projects/Bar-Tech-Venture/tipsplit/TipSplit-Vision-and-Dev-Plan.md`).
 
----
+## Docs
 
-Private repo. Bar-tech venture: `TipSplit` (this) + `BarSpec` (public).
+| | EN | PT-PT |
+|---|---|---|
+| This file | [README.md](README.md) | [README.pt-PT.md](README.pt-PT.md) |
+| **User guide** — the weekly ritual, vales, payday, PINs, FAQs | [USER_GUIDE.md](docs/USER_GUIDE.md) | [USER_GUIDE.pt-PT.md](docs/USER_GUIDE.pt-PT.md) |
+| **Dev guide** — architecture, schema, tests, deploy, PIN recovery | [DEV_GUIDE.md](docs/DEV_GUIDE.md) | [DEV_GUIDE.pt-PT.md](docs/DEV_GUIDE.pt-PT.md) |
+| **Why** — the reasoning behind the rules | [WHY.md](docs/WHY.md) | [WHY.pt-PT.md](docs/WHY.pt-PT.md) |
+| **Demo script** — 5 minutes in front of a venue | [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | [DEMO_SCRIPT.pt-PT.md](docs/DEMO_SCRIPT.pt-PT.md) |
+
+## License
+
+**Private repository.** No license is granted: the code, docs and screenshots are not for
+redistribution. The sister app [BarSpec](https://github.com/lel1guy/barspec) is public
+under AGPL-3.0 with a commercial option — TipSplit is a separate product and stays
+private until the venture says otherwise.

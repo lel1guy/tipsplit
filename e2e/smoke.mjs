@@ -111,7 +111,8 @@ async function run() {
   await page.waitForSelector("#weekList .week-item");
   await page.click("#weekList .week-item");
   await page.waitForSelector("#poolInput");
-  ok("pool persisted", (await page.inputValue("#poolInput")) === "100");
+  ok("pool persisted", parseFloat(await page.inputValue("#poolInput")) === 100,
+     await page.inputValue("#poolInput"));
   ok("hours persisted", (await page.textContent("#statHours")).trim() === "60");
 
   // ---- 6. vale: recorded in Equipa, visible on the week ----

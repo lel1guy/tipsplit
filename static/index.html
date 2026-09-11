@@ -461,7 +461,7 @@ function esc(x) {
 }
 function fmtDate(iso) {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 function nextMonday() {
   const d = new Date();
@@ -587,7 +587,7 @@ async function loadDash() {
   const n = d.vale_warnings.length;
   $("#dashNote").textContent = n
     ? `⚠ ${n} adiantamento(s) acima do ganho da semana — dívida ao pote.`
-    : `${d.staff_active} pessoa(s) ativas${w ? "" : " · cria a primeira semana"}`;
+    : `${d.staff_active === 1 ? "1 pessoa ativa" : d.staff_active + " pessoas ativas"}${w ? "" : " · cria a primeira semana"}`;
 }
 
 async function refreshSidebar() {
@@ -604,8 +604,8 @@ async function refreshSidebar() {
 
 // ---------- render: week detail ----------
 const DAY_LABELS = [
-  ["mon", "Mon"], ["tue", "Tue"], ["wed", "Wed"], ["thu", "Thu"],
-  ["fri", "Fri"], ["sat", "Sat"], ["sun", "Sun"],
+  ["mon", "Seg"], ["tue", "Ter"], ["wed", "Qua"], ["thu", "Qui"],
+  ["fri", "Sex"], ["sat", "Sáb"], ["sun", "Dom"],
 ];
 
 function weekHours(e) {
@@ -635,7 +635,7 @@ async function openWeek(id) {
   d.innerHTML = `
     <div class="week-header">
       <div>
-        <h2>Semana de ${fmtDate(w.start_date)}${locked ? ' <span class="badge">🔒 fechada</span>' : ""}</h2>
+        <h2>Semana de ${fmtDate(w.start_date)}${locked ? ' <span class="badge">fechada</span>' : ""}</h2>
         <div class="week-facts">${w.entries.length} pessoas · ${w.total_hours} h no total</div>
       </div>
       <div class="row">
@@ -645,7 +645,7 @@ async function openWeek(id) {
 
     <div class="stat-strip">
       <div class="stat"><div class="cap">Pool (total €)</div>
-        <input type="number" id="poolInput" min="0" step="0.01" value="${w.pool_eur}"${locked ? " disabled" : ""}></div>
+        <input type="number" id="poolInput" min="0" step="0.01" value="${Number(w.pool_eur).toFixed(2)}"${locked ? " disabled" : ""}></div>
       <div class="stat"><div class="cap">Total de horas</div><div class="num" id="statHours">${w.total_hours}</div></div>
       <div class="stat"><div class="cap">Total líquido</div><div class="num" id="statSum">—</div></div>
       <div class="stat"><div class="cap">Conferência</div><div class="num" id="statCheck" style="font-size:16px;">—</div></div>
@@ -669,8 +669,8 @@ async function openWeek(id) {
 
     <div class="row" style="margin-top: 16px;">
       ${locked ? "" : '<button id="saveBtn">Guardar semana</button>'}
-      ${locked ? "" : '<button class="ghost" id="lockBtn">🔒 Fechar semana</button>'}
-      ${locked ? '<button class="ghost" id="unlockBtn">🔓 Desbloquear (com motivo)</button>' : ""}
+      ${locked ? "" : '<button class="ghost" id="lockBtn">Fechar semana</button>'}
+      ${locked ? '<button class="ghost" id="unlockBtn">Desbloquear (com motivo)</button>' : ""}
       <span class="check" id="checkMsg"></span>
     </div>
     <div class="row" style="margin-top: 10px;">
@@ -681,7 +681,7 @@ async function openWeek(id) {
     </div>
     <div class="edit-note" style="color: var(--muted); font-size: 14px; margin-top: 8px;">
       As horas de cada dia (seg–dom) somam o total da pessoa.
-      quinhão = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.
+      Quinhão = pool × horas ÷ total de horas − vales. O líquido nunca é negativo.
       ${locked ? "Semana fechada — para corrigir, é preciso desbloquear (com motivo)." : ""}
     </div>`;
 
